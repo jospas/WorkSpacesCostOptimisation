@@ -1,6 +1,7 @@
 {
 	"directoryId": "XXXXXXXX",
 	"region": "ap-southeast-2",
+	"profile": "workspaces",
 	"daysToEvaluate": 30,
 	"outputSummaryFile": "usage.csv",
 	"outputWorkspacesFile": "workspaces.json",
