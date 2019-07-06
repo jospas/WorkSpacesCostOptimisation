@@ -1,0 +1,24 @@
+{
+	"directoryId": "XXXXXXXX",
+	"region": "ap-southeast-2",
+	"daysToEvaluate": 30,
+	"outputSummaryFile": "usage.csv",
+	"outputWorkspacesFile": "workspaces.json",
+	"convertBillingMode": false,
+	"bundles": [
+		{
+			"bundleId": "XXXXXXXX",
+			"description": "Standard",
+			"hourlyPrice": 0.39,
+			"hourlyBasePrice": 14.00,
+			"monthlyPrice": 45.00
+		},
+		{
+			"bundleId": "XXXXXXXX",
+			"description": "Performance",
+			"hourlyPrice": 0.70,
+			"hourlyBasePrice": 14.00,
+			"monthlyPrice": 72.00
+		}		
+	]
+}
