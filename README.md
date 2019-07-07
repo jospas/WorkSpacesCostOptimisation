@@ -78,13 +78,13 @@ This will produce a csv file into:
   
 The csv has data that shows the deployed WorkSpace instances and recommendations around potential cost savings.
 
-Investigate this file before enabling billing conversion.
+Investigate this file before enabling automatic billing conversion.
 
 ## Cost implications
 
 When converting monthly billing instances to hourly instances the change actually takes effect at the start of the next month.
 
-When converting to monthly instances from hourly instances, the hourly usage is still charged (including the base cost) and a pro-rata monthly fee is applied based on the number of days left in the month.
+When converting to monthly instances from hourly instances, the existing hourly usage is still charged (including the base cost) and a pro-rata monthly fee is applied based on the number of days left in the month.
 
 For more information see:
 
@@ -96,14 +96,14 @@ Run the script using this command, passing your config file of choice:
 
 	node WorkSpaceUsage.js config/example.json
 
-The script will produce a CSV file containing the raw data, a JDON file containing data about current WorkSpace instances.
+The script will produce a CSV file containing the raw data, a JSON file containing data about current WorkSpace instances.
 
 It also produces some summary estimates of potential savings for example:
 
 	[INFO] Total potential monthly savings: $4557.69
 	[INFO] Total potential yearly savings: $54692.28
   
-If billing conversion is diabled iby configuration you will see:
+If billing conversion is disabled by configuration you will see:
 
 	[INFO] Not converting billing modes as disabled by configuration
   
