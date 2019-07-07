@@ -6,6 +6,28 @@ This is a Node.js conversion of the existing project that provides a full deploy
 
 - [WorkSpaces Cost Optimizer](https://docs.aws.amazon.com/solutions/latest/workspaces-cost-optimizer/welcome.html)
 
+## Important Notes
+
+I have not extensively tested the update facility (although it is quite simple) due to lack of a complex writable AWS environment and limited need to run this script repeatedly.
+
+I'm looking for a volunteer to enhance the solution by adding an AWS CLI bash script output option that customers can inspect before running.
+
+Enabling the billing conversion flag:
+
+	"convertBillingMode": true
+	
+in your config and executing will currently attempt to flip the billing between monthly and hourly and vice versa if this saves money. 
+
+Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing), you should not run this script on a timer until you understand how (and when) the pricing work, an extract from the FAQ here:
+
+**Q: Can I switch between hourly and monthly billing?**
+
+Yes, you can switch from hourly to monthly billing for your Amazon WorkSpaces at any time by switching the running mode to AlwaysOn in the AWS Management Console, or through the Amazon WorkSpaces APIs. When you switch, billing immediately changes from hourly to monthly, and you are charged a prorated amount at the monthly rate for the remainder of the month, along with the monthly and hourly usage fees already billed for the month. Your Amazon WorkSpaces will continue to be charged monthly unless you switch the running mode back to AutoStop.
+
+You can switch from monthly to hourly billing by setting the running mode to AutoStop in the AWS Management Console or through the Amazon WorkSpaces APIs. Switching from monthly to hourly billing will take effect the following month as you will have already paid for your Amazon WorkSpaces for that month. Your Amazon WorkSpaces will continue to be charged hourly unless you switch the running mode back to AlwaysOn. Your Amazon WorkSpaces will continue to be charged hourly unless you switch the running mode back to AlwaysOn. **Please note that billing renewals happen at 00:00 Pacific Time on the first of each month.**
+
+WorkSpaces users can also switch between monthly and hourly billing directly from the WorkSpaces client if this self-service management capability is enabled by their WorkSpaces administrator.
+
 ## Environment setup
 
 This is a Node.js script so you will need Node.js (and NPM installed):
@@ -45,7 +67,7 @@ Clone the config/example.json configuration file locally and open in an editor.
 
 	  {
 	    "directoryId": "XXXXXXXX",
-	    "region": "ap-southeast-2",
+	    "region": "XXXXXXXX",
 	    "profile": "workspaces",
 	    "daysToEvaluate": 30,
 	    "outputSummaryFile": "usage.csv",
