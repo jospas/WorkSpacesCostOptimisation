@@ -86,6 +86,10 @@ When converting monthly billing instances to hourly instances the change actuall
 
 When converting to monthly instances from hourly instances, the hourly usage is still charged (including the base cost) and a pro-rata monthly fee is applied based on the number of days left in the month.
 
+For more information see:
+
+- [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing)
+
 ## Running the script
 
 Run the script using this command, passing your config file of choice:
