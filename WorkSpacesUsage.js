@@ -37,21 +37,33 @@ async function run ()
     awsworkspaces = new AWS.WorkSpaces();
     awscloudwatch = new AWS.CloudWatch();
 
-    // Loads the workspaces
-    var workspaces = await getWorkSpaces(config);
+    var workspaces = null;
 
-    // Load  usage from CloudWatch
-    await getWorkSpacesUsage(config, workspaces);
+    // In simulation mode load up the serialised workspaces file
+    if (config.simulate)
+    {
+      workspaces = JSON.parse(fs.readFileSync(config.outputWorkspacesFile));
+      console.log(sprintf('[INFO] Loaded: %d simulated workspaces', workspaces.length));
+    }
+    else
+    {
+      // Loads the workspaces and metrics from the AWS account
+      await getWorkSpaces(config);
 
-    // Save the workspaces to disk for later
-    fs.writeFileSync(config.outputWorkspacesFile, 
-      JSON.stringify(workspaces, null, '  '));
+      // Load  usage from CloudWatch
+      await getWorkSpacesUsage(config, workspaces);
 
-    // Log total potential savings
-    console.log(sprintf('[INFO] Total potential monthly savings: $%.2f', config.TotalSavings));
-    console.log(sprintf('[INFO] Total potential yearly savings: $%.2f', config.TotalSavings * 12.0));
+      // Save the workspaces to disk for later
+      fs.writeFileSync(config.outputWorkspacesFile, 
+        JSON.stringify(workspaces, null, '  '));
 
-    // Convert billing modes if requested
+      // Log total potential savings
+      console.log(sprintf('[INFO] Total potential monthly savings: $%.2f', config.TotalSavings));
+      console.log(sprintf('[INFO] Total potential yearly savings: $%.2f', config.TotalSavings * 12.0));
+    }
+
+    // Convert billing modes if requested and write out the script
+    // for manual conversion
     await convertBillingModes(config, workspaces);
 
     // Success
@@ -85,11 +97,7 @@ function getConfigFile()
  */
 async function convertBillingModes(config, workspaces)
 {
-  if (!config.convertBillingMode)
-  {
-    console.log('[INFO] Not converting billing modes as disabled by configuration');
-    return;
-  }
+  var outputScript = '#!/bin/bash\n\n';
 
   var convertedWorkspaces = 0;
 
@@ -103,9 +111,21 @@ async function convertBillingModes(config, workspaces)
 
       if (workspace.Action === 'CONVERT')
       {
-        await convertBillingMode(config, workspace);
-        convertedWorkspaces++;
+        if (config.convertBillingMode)
+        {
+          await convertBillingMode(config, workspace);
+          convertedWorkspaces++;  
+        }
+
+        outputScript += createUpdateScriptLine(config, workspace);
       }
+    }
+
+    if (config.outputBillingScript)
+    {
+      fs.writeFileSync(config.outputBillingScript, outputScript);
+      console.log('\n[INFO] Wrote update billing script to: ' + 
+        config.outputBillingScript);
     }
   }
   catch (error)
@@ -113,8 +133,48 @@ async function convertBillingModes(config, workspaces)
     throw error;
   }
 
-  console.log('\n[INFO] Successfully converted billing model for ' + 
+  console.log('[INFO] Successfully converted billing model for ' + 
     convertedWorkspaces + ' workspaces');
+}
+
+/**
+ * Creates a line in a script to update billing mode
+ */
+function createUpdateScriptLine(config, workspace)
+{
+  if (workspace.Action !== 'CONVERT')
+  {
+    return '';
+  }
+
+  var profileOption = '';
+
+  if (config.profile)
+  {
+    profileOption = '--profile ' + config.profile;
+  }
+
+  var newBillingMode = '';
+
+  if (workspace.Mode === 'MONTHLY')
+  {
+    newBillingMode = 'RunningMode=AUTO_STOP';
+  }
+  else if (workspace.Mode === 'HOURLY')
+  {
+    newBillingMode = 'RunningMode=ALWAYS_ON';
+  }
+
+  return sprintf('echo "[INFO] Converting WorkSpaces instance: %s with potential monthly savings: $%.2f"\n' +
+    'aws workspaces modify-workspace-properties %s ' +
+    '--workspace-id %s --region %s ' +
+    '--workspace-properties %s\n\n',
+      workspace.WorkspaceId,
+      workspace.Savings,
+      profileOption,
+      workspace.WorkspaceId,
+      config.region,
+      newBillingMode);
 }
 
 /**

@@ -5,7 +5,9 @@
 	"daysToEvaluate": 30,
 	"outputSummaryFile": "usage.csv",
 	"outputWorkspacesFile": "workspaces.json",
+	"outputBillingScript": "updateBilling.sh",
 	"convertBillingMode": false,
+	"simulate": false,
 	"bundles": [
 		{
 			"bundleId": "XXXXXXXX",
