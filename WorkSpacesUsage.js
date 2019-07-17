@@ -48,7 +48,7 @@ async function run ()
     else
     {
       // Loads the workspaces and metrics from the AWS account
-      await getWorkSpaces(config);
+      workspaces = await getWorkSpaces(config);
 
       // Load  usage from CloudWatch
       await getWorkSpacesUsage(config, workspaces);
