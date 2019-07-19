@@ -244,6 +244,11 @@ function processConfig(config)
         JSON.stringify(bundle, null, '  '));
   }
 
+  if (config.convertBillingMode)
+  {
+    console.log('convertBillingMode is currently disabled');
+    config.convertBillingMode = false;
+  }
   config.TotalSavings = 0.0;
 }
 
