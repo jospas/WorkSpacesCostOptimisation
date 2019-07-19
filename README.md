@@ -6,13 +6,21 @@ This is a Node.js conversion of the existing project that provides a full deploy
 
 - [WorkSpaces Cost Optimizer](https://docs.aws.amazon.com/solutions/latest/workspaces-cost-optimizer/welcome.html)
 
+## Current issues
+
+I am tracking Issue #2 and the impacts of running the tool more than once a month and am disabling automatic update until I fix this bug.
+
+Please use the AWS CLI Script output for now and run sections at your discretion.
+
 ## Important Notes
 
 I have not extensively tested the update facility (although it is quite simple) due to lack of a complex writable AWS environment and limited need to run this script repeatedly.
 
-I'm looking for a volunteer to enhance the solution by adding an AWS CLI bash script output option that customers can inspect before running.
+(Done) I'm looking for a volunteer to enhance the solution by adding an AWS CLI bash script output option that customers can inspect before running.
 
-Enabling the billing conversion flag:
+	!!! (Note) convertBillingMode feature is disabled for now.
+
+(Disabled currently) Enabling the billing conversion flag:
 
 	"convertBillingMode": true
 	
