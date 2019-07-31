@@ -495,15 +495,15 @@ async function getWorkSpacesUsage(config, workspaces)
 
 /**
  * Fetches the start of the workspaces billing month
- * which is is midnight on the 1st of the month in
- * Pacific Time (UTC -07:00)
+ * which should be midnight on the 1st of the month in
+ * Pacific Time (UTC -07:00) but I am using local time here 
+ * or this fails on the 1st on the month in forward timezones
+ * like Australia.
  */
 function getStartDate()
 {
   var now = new Date();
-  var startDate = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), 1, 7, 0, 0, 0)
-  );
+  var startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
   return startDate;
 }
 
