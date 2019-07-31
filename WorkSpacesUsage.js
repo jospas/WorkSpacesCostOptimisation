@@ -165,12 +165,19 @@ function createUpdateScriptLine(config, workspace)
     newBillingMode = 'RunningMode=ALWAYS_ON';
   }
 
-  return sprintf('echo "[INFO] Converting WorkSpaces instance: %s with potential monthly savings: $%.2f"\n' +
+  return sprintf('echo "[INFO] Convert instance: [%s] user: [%s] current mode: [%s]"\n' +
+    'echo "[INFO] Connected hours: %d"\n' +
+    'echo "[INFO] Potential savings: %.2f USD"\n' +
+    'echo "[INFO] Last day of month: %s"\n' +
     'aws workspaces modify-workspace-properties %s ' +
     '--workspace-id %s --region %s ' +
     '--workspace-properties %s\n\n',
       workspace.WorkspaceId,
+      workspace.UserName, 
+      workspace.Mode,
+      workspace.ConnectedHours,
       workspace.Savings,
+      config.lastDayOfMonth,
       profileOption,
       workspace.WorkspaceId,
       config.region,
@@ -240,15 +247,23 @@ function processConfig(config)
 
     bundle.optimalMonthlyHours = crossOverHours;
 
-    console.log('Processed bundle:\n%s',
+    /**
+     * Monthly pro-rata charge assumes 30 days in a month
+     */
+    bundle.monthlyPricePerHour = bundle.monthlyPrice / 720.0;
+
+    console.log('[INFO] Processed bundle:\n%s',
         JSON.stringify(bundle, null, '  '));
   }
 
   if (config.convertBillingMode)
   {
-    console.log('convertBillingMode is currently disabled');
+    console.log('[WARNING] convertBillingMode is currently disabled');
     config.convertBillingMode = false;
   }
+
+  console.log('[INFO] Last day of month: ' + config.lastDayOfMonth);
+
   config.TotalSavings = 0.0;
 }
 
@@ -273,7 +288,24 @@ function getBundle(config, workspace)
 }
 
 /**
- * Analyses the results of the last n days
+ * Fetches the number of days left in a month for a given date
+ */
+function getDaysLeftInMonth(inputDate)
+{
+  var daysInMonth = getDaysInMonth(inputDate);
+  return daysInMonth - inputDate.getDate();
+}
+
+/**
+ * Fetches the number of days in a month
+ */
+function getDaysInMonth(inputDate)
+{
+  return new Date(inputDate.getFullYear(), inputDate.getMonth() + 1, 0).getDate();
+}
+
+/**
+ * Analyses the results for a workspace for this year
  */
 function analyseResults(config, workspace)
 {
@@ -283,36 +315,53 @@ function analyseResults(config, workspace)
   workspace.Mode = '';
   workspace.Action = 'KEEP';
   workspace.Savings = 0.0;
-  workspace.Cost = 0.0;
 
+  workspace.HourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
+  workspace.MonthlyCost = bundle.monthlyPrice;
+
+  /**
+   * Convert hourly billing to monthly if the current use plus the
+   * monthly pro-rata amount exceeds the monthly cost
+   */
   if (runningMode === 'AUTO_STOP')
   {
+    workspace.UsageCost = workspace.HourlyCost;
     workspace.Mode = 'HOURLY';
-    workspace.Cost = bundle.hourlyBasePrice + workspace.BillableHours * bundle.hourlyPrice;
-    if (workspace.BillableHours > bundle.optimalMonthlyHours)
+
+    if (workspace.ConnectedHours >= bundle.optimalMonthlyHours)
     {
       workspace.Action = 'CONVERT';
-      workspace.Savings = workspace.Cost - bundle.monthlyPrice;
+      workspace.Savings = workspace.HourlyCost - bundle.monthlyPrice;
     }
   }
+  /**
+   * Convert monthly billing back to hourly only at the end
+   * of the month and only if the utilisation is low
+   */
   else if (runningMode === 'ALWAYS_ON')
   {
+    workspace.UsageCost = bundle.monthlyPrice;
     workspace.Mode = 'MONTHLY';
-    workspace.Cost = bundle.monthlyPrice;
-    if (workspace.BillableHours < bundle.optimalMonthlyHours)
+    if (config.lastDayOfMonth && (workspace.ConnectedHours < bundle.optimalMonthlyHours))
     {
       workspace.Action = 'CONVERT';
-      workspace.Savings = bundle.monthlyPrice - (bundle.hourlyBasePrice + workspace.BillableHours * bundle.hourlyPrice);
+      workspace.Savings = bundle.monthlyPrice - workspace.HourlyCost;
     }
   }
 
-  var line = sprintf('%s,%s,%d,%.2f,%.2f,%.2f,%s,%s,%s,%s,%s,%s,%s,%d,%.2f,%s,%.2f\n',
+  var line = sprintf('%s,%s,%.2f,%.2f,%.2f,%d,' +
+      '%s,%s,%s,%s,%s,%s,%s,' +
+      '%d,%.2f,' +
+      '%d,%d,%d,' +
+      '%s,%.2f\n',
+
     bundle.bundleId, 
     bundle.description, 
-    bundle.optimalMonthlyHours,
-    bundle.monthlyPrice,
     bundle.hourlyBasePrice,
     bundle.hourlyPrice,
+    bundle.monthlyPrice,
+    bundle.optimalMonthlyHours,
+
     workspace.DirectoryId,
     workspace.WorkspaceId,
     workspace.UserName,
@@ -320,8 +369,14 @@ function analyseResults(config, workspace)
     workspace.State,
     workspace.WorkspaceProperties.ComputeTypeName,
     workspace.Mode,
-    workspace.BillableHours,
-    workspace.Cost,
+
+    workspace.ConnectedHours,
+    workspace.UsageCost,
+
+    workspace.MaxUsage,
+    workspace.MedianUsage,
+    workspace.MeanUsage,
+
     workspace.Action,
     workspace.Savings
   );
@@ -405,19 +460,28 @@ async function getWorkSpacesUsage(config, workspaces)
   var results = [];
 
   fs.writeFileSync(config.outputSummaryFile, 
-    'BundleId,Description,OptimalMonthlyHours,' +
-    'MonthlyPrice,HourlyBasePrice,HourlyPrice,' +
+    'BundleId,Description,'+
+    'HourlyBasePrice,HourlyPrice,MonthlyPrice,OptimalMonthlyHours,' +
     'DirectoryId,WorkSpaceId,UserName,ComputerName,' +
-    'State,ComputeType,Mode,Hours,Cost,Action,Savings\n');
+    'State,ComputeType,CurrentMode,' +
+    'ConnectedHours,UsageCost,' +
+    'MaxUsage,MedianUsage,MeanUsage,' +
+    'Action,Savings\n');
 
   try
   {
     for (var i = 0; i < workspaces.length; i++)
     {
-      var billableHours = await getWorkSpaceUsage(config, workspaces[i]);
-      workspaces[i].BillableHours = billableHours;
+      /**
+       * A set that is used to yrack hourly usage
+       */
+      var usageSet = new Set();
+
+      var connectedHours = await getWorkSpaceUsage(config, workspaces[i]);
+      workspaces[i].ConnectedHours = connectedHours;
+
       analyseResults(config, workspaces[i]);
-      printProgress(sprintf('[INFO] Loading usage metrics: %.0f%%', 
+      printProgress(sprintf('[INFO] Loading connected user metrics: %.0f%%', 
         i * 100.0 / workspaces.length));
     }
 
@@ -430,8 +494,84 @@ async function getWorkSpacesUsage(config, workspaces)
 }
 
 /**
+ * Fetches the start of the workspaces billing month
+ * which is is midnight on the 1st of the month in
+ * Pacific Time (UTC -07:00)
+ */
+function getStartDate()
+{
+  var now = new Date();
+  var startDate = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), 1, 7, 0, 0, 0)
+  );
+  return startDate;
+}
+
+/**
+ * Mean of non-zero daily usage
+ */
+function mean(dailyUsageArray)
+{
+  var total = 0;
+  var count = 0;
+
+  for (var i = 0; i < dailyUsageArray.length; i += 1) 
+  {
+    if (dailyUsageArray[i] > 0)
+    {
+      total += dailyUsageArray[i];
+      count++;
+    }
+    
+  }
+
+  if (count > 0)
+  {
+    return total / count;  
+  }
+  else
+  {
+    return 0;
+  }
+  
+}
+
+/**
+ * Median usage of non-zero days
+ */
+function median(dailyUsageArray)
+{
+  var nonZero = [];
+  for (var i = 0; i < dailyUsageArray.length; i++)
+  {
+    if (dailyUsageArray[i] > 0)
+    {
+      nonZero.push(dailyUsageArray[i]);
+    }
+  }
+
+  if (nonZero.length === 0)
+  {
+    return 0;
+  }
+
+  nonZero.sort();
+ 
+  if (nonZero.length % 2 === 0)
+  {
+    return (nonZero[nonZero.length / 2 - 1] + nonZero[nonZero.length / 2]) / 2;
+  }
+  else 
+  {
+    return nonZero[(nonZero.length - 1) / 2];
+  }
+}
+
+/**
  * Loads CloudWatch metrics for a workspace
- * and backing off and retrying if required
+ * and backing off and retrying if required.
+ * Looks for hours with connected users for 
+ * a baseline usage metric
  */
 async function getWorkSpaceUsage(config, workspace)
 {
@@ -439,10 +579,8 @@ async function getWorkSpaceUsage(config, workspace)
   var retry = 0;
   var lastError = null;
 
-  var runningMode = workspace.WorkspaceProperties.RunningMode;
-  var startDate = new Date();
+  var startDate = getStartDate();
   var endDate = new Date();
-  startDate.setDate(startDate.getDate() - config.daysToEvaluate);
 
   var params = {
     Dimensions: [],
@@ -454,23 +592,11 @@ async function getWorkSpaceUsage(config, workspace)
 
   params.Dimensions = params.Dimensions.concat({
     Name: 'WorkspaceId',
-    Value: workspace.WorkspaceId
+    Value: workspace.WorkspaceId,
   });
 
-  if (runningMode === 'AUTO_STOP')
-  {
-    params.MetricName = 'Stopped';
-    params.Statistics = ['Minimum'];
-  }
-  else if (runningMode === 'ALWAYS_ON')
-  {
-    params.MetricName = 'InSessionLatency';
-    params.Statistics = ['Maximum'];
-  }
-  else
-  {
-    throw new Error('Unhandled running mode found for Workspace: ' + runningMode);
-  }
+  params.MetricName = 'UserConnected';
+  params.Statistics = ['Maximum'];
 
   while (retry < maxRetries)
   {
@@ -480,23 +606,26 @@ async function getWorkSpaceUsage(config, workspace)
 
       var billableTime = 0;
 
-      if (runningMode === 'AUTO_STOP')
+      workspace.DailyUsage = [];
+      workspace.DailyUsage.length = getDaysInMonth(new Date());
+      workspace.DailyUsage.fill(0);
+
+      for (var m = 0; m < metrics.Datapoints.length; m++)
       {
-        for (var m = 0; m < metrics.Datapoints.length; m++)
+        if (metrics.Datapoints[m].Maximum > 0)
         {
-          if (metrics.Datapoints[m].Minimum == 0)
-          {
-            billableTime++;
-          }
-        }
-      }
-      else if (runningMode === 'ALWAYS_ON')
-      {
-        for (var m = 0; m < metrics.Datapoints.length; m++)
-        {
+          // Track daily aggregate usage (in UTC)
+          var when = new Date(metrics.Datapoints[m].Timestamp);
+          workspace.DailyUsage[when.getDate() - 1]++;
+
+          // Track a billable hour
           billableTime++;
         }
       }
+
+      workspace.MaxUsage = Math.max(...workspace.DailyUsage);
+      workspace.MedianUsage = median(workspace.DailyUsage);
+      workspace.MeanUsage = mean(workspace.DailyUsage);
 
       return billableTime;
     }
