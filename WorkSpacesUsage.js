@@ -5,6 +5,8 @@ var AWS = require('aws-sdk');
 var awsworkspaces = null;
 var awscloudwatch = null;
 
+var splunkLogger = require("splunk-logging").Logger;
+
 /**
  * Program entry point that looks up all workspaces and
  * their usage and works out if swapping billing mode 
@@ -48,7 +50,7 @@ async function run ()
     else
     {
       // Loads the workspaces and metrics from the AWS account
-      workspaces = await getWorkSpaces(config);
+      workspaces = await getWorkSpaces(config);      
 
       // Load  usage from CloudWatch
       await getWorkSpacesUsage(config, workspaces);
@@ -57,9 +59,12 @@ async function run ()
       fs.writeFileSync(config.outputWorkspacesFile, 
         JSON.stringify(workspaces, null, '  '));
 
+      // Log to Splunk HEC if configured
+      await logToSplunk(config, workspaces);      
+
       // Log total potential savings
       console.log(sprintf('[INFO] Total potential monthly savings: $%.2f', config.TotalSavings));
-      console.log(sprintf('[INFO] Total potential yearly savings: $%.2f', config.TotalSavings * 12.0));
+      console.log(sprintf('[INFO] Total potential yearly savings: $%.2f', config.TotalSavings * 12.0));     
     }
 
     // Convert billing modes if requested and write out the script
@@ -221,7 +226,7 @@ async function convertBillingMode(config, workspace)
     catch (error)
     {
       lastError = error;
-      sleep(getSleepTime(retry));     
+      await sleep(getSleepTime(retry));     
       retry++;
     }
   }
@@ -406,7 +411,7 @@ async function getWorkspacesPage(params)
     catch (error)
     {
       lastError = error;
-      sleep(getSleepTime(retry));     
+      await sleep(getSleepTime(retry));     
       retry++;
     }
   }
@@ -632,7 +637,7 @@ async function getWorkSpaceUsage(config, workspace)
     catch (error)
     {
       lastError = error;
-      sleep(getSleepTime(retry));     
+      await sleep(getSleepTime(retry));     
       retry++;
     }
   }
@@ -662,6 +667,49 @@ function getSleepTime(retry)
   else
   {
     return 2500;
+  }
+}
+
+async function logToSplunk(config, workspaces)
+{
+  if (!config.splunk || !config.splunk.enabled)
+  {
+    console.log('[INFO] Skipping Splunk logging');
+    return;
+  }
+
+  try
+  {
+
+    var config = {
+        token: config.splunk.token,
+        url: config.splunk.url,
+        batchInterval: 1000,
+        maxBatchCount: 10,
+        maxBatchSize: 1024 // 1kb
+    };
+   
+    var logger = new splunkLogger(config);
+    
+    console.log("[INFO] Starting to sending Splunk data");
+
+    for (var i = 0; i < workspaces.length; i++)
+    {
+      var payload = {
+        message: workspaces[i]
+      };
+
+      logger.send(payload);
+    }
+
+    await sleep(5000);
+
+    console.log("[INFO] Sending Splunk data is complete");
+  }
+  catch (error)
+  {
+    console.log('\n[ERROR] Failed to log to Splunk', error);
+    throw error;
   }
 }
 
