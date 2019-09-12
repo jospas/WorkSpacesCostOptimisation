@@ -714,10 +714,10 @@ async function logToSplunk(config, workspaces)
 /**
  * Register the command line entry point
  */
-// if (require.main == module)
-// {
+if (require.main == module)
+{
   run();
-// }
+}
 
 /**
  * Print progress to console
