@@ -433,9 +433,7 @@ async function getWorkSpaces(config)
   try
   {
     var response = await getWorkspacesPage(params);
-
-    results.concat(response.Workspaces);
-
+    results = results.concat(response.Workspaces);
     printProgress('[INFO] Workspaces loaded: ' + results.length);
 
     while (response.NextToken)
@@ -716,10 +714,10 @@ async function logToSplunk(config, workspaces)
 /**
  * Register the command line entry point
  */
-if (require.main == module)
-{
+// if (require.main == module)
+// {
   run();
-}
+// }
 
 /**
  * Print progress to console

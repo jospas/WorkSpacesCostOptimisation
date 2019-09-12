@@ -124,7 +124,7 @@ For more information see:
 
 Run the script using this command, passing your config file of choice:
 
-	node WorkSpaceUsage.js config/example.json
+	node WorkSpacesUsage.js config/example.json
 
 The script will produce a CSV file containing the raw data, a JSON file containing data about current WorkSpace instances.
 
