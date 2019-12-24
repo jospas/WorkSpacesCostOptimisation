@@ -2,26 +2,7 @@
 	"directoryId": "XXXXXXXX",
 	"region": "ap-southeast-2",
 	"profile": "workspaces",
-	"outputSummaryFile": "usage.csv",
-	"outputWorkspacesFile": "workspaces.json",
-	"outputBillingScript": "updateBilling.sh",
+	"windowsBYOL": false,
 	"convertBillingMode": false,
-	"lastDayOfMonth": false,
-	"simulate": false,
-	"bundles": [
-		{
-			"bundleId": "XXXXXXXX",
-			"description": "Standard",
-			"hourlyPrice": 0.39,
-			"hourlyBasePrice": 14.00,
-			"monthlyPrice": 45.00
-		},
-		{
-			"bundleId": "XXXXXXXX",
-			"description": "Performance",
-			"hourlyPrice": 0.70,
-			"hourlyBasePrice": 14.00,
-			"monthlyPrice": 72.00
-		}		
-	]
+	"lastDayOfMonth": false
 }

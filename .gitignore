@@ -1,7 +1,5 @@
 config/*.json
-*.csv
-*.json
-*.sh
+output/
 
 # Logs
 logs

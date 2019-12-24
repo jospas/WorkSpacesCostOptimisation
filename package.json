@@ -1,13 +1,17 @@
 {
   "name": "WorkSpacesCostOptimisation",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node.js script that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.",
-  "main": "src/WorkSpacesUsage.js",
+  "main": "code/WorkSpacesUsageScript.js",
   "author": "Josh Passenger (jospas@amazon.com)",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jospas/WorkSpacesCostOptimisation.git"
+  },
   "dependencies": {
-    "aws-sdk": "^2.487.0",
-    "splunk-logging": "^0.10.1",
-    "sprintf-js": "^1.1.2"
+    "aws-sdk": "^2.596.0",
+    "sprintf-js": "^1.1.2",
+    "axios": "^0.19.0"
   }
 }
