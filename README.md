@@ -1,28 +1,22 @@
 # Amazon WorkSpaces Cost Optimisation
 
-Provides a simple Node.js script and Lambda function that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.
+Provides a simple Node.js script and soon a Lambda function that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.
 
 This is a Node.js conversion of the existing project that provides a full deployable solution to AWS but for one off usage by customers:
 
 - [WorkSpaces Cost Optimizer](https://docs.aws.amazon.com/solutions/latest/workspaces-cost-optimizer/welcome.html)
 
-It adds the enhancement of reduced configuration (automated download of public pricing) and reduces the deployable footprint (can be run as a script or a simple Lambda function).
+It adds the enhancement of reduced configuration (automated download of public pricing) and reduces the deployable footprint (can be run as a script and soon as a Lambda function).
 
 ## TODO
 
 1. Finish Lambda function deployment and scheduling
-2. Track WorkSpaces usage over multiple months in S3 or DynamoDB and suggest terminations of under-utilised instances
-3. Track extra allocated user storage or instances
-
-## Current issues
-
-I have disabled automated update of environments for now, use the output script to make discretionary changes to your environment.
+2. Track the cost of extra allocated user storage
+3. Track WorkSpaces usage over multiple months in S3 or DynamoDB and suggest terminations of under-utilised instances 
 
 ## Important Notes
 
 Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing) and [Amazon WorkSpaces Pricing](https://aws.amazon.com/workspaces/pricing/) pages.
-
-You should not run this script on a timer until you understand how (and when) the pricing works, an extract from the FAQ here:
 
 **Q: Can I switch between hourly and monthly billing?**
 
@@ -73,27 +67,12 @@ Clone the config/example.json configuration file locally and open in an editor.
 	    "directoryId": "XXXXXXXX",
 	    "region": "XXXXXXXX",
 	    "profile": "workspaces",
-	    "windowsBYOL": false,
-	    "convertBillingMode": false,
+	    "windowsBYOL": false
 	  }
   
 Edit the AWS region code (for example: ap-southeast-2), Amazon WorkSpaces directory id and remove or edit the profile name as required.
 
-If using dedicated hosts and BYOL licensing for Windows, enable the windowsBYOL flag to use BYOL pricing.
-
-The script downloads public WorkSpaces pricing and attempts to price each bundle in use.
-
-Initially, run the program with the config setting:
-
-	"convertBillingMode": false
-
-This will output pricing into:
-
-	output/usage.csv
-  
-The csv has data that shows the deployed WorkSpace instances and recommendations around potential cost savings.
-
-Investigate this file before enabling automatic billing conversion.
+If using dedicated hosts and BYOL licensing for Windows, enable the 'windowsBYOL' flag to use BYOL pricing.
 
 ## Cost implications
 
@@ -109,22 +88,18 @@ For more information see:
 
 Run the script using this command, passing your config file of choice:
 
-	node code/WorkSpacesUsageScript.js config/example.json
+	node code/WorkSpacesUsageScript.js config/yourconfig.json
 
 The script will produce the following data files in *./output/*
 
-1. a CSV file containing the raw data
-2. a JSON file containing data about current WorkSpace instances
-3. a command line script for making the suggested changes
-4. data files regarding the current bundles and public pricing
+1. usage.csv - a CSV file containing the raw usage data
+2. workspaces.json - a JSON file containing data about current WorkSpaces instances and their daily usage
+3. updateBilling.sh - a command line script for making the suggested changes
+4. customer_bundes.json - a data file containing the current customer bundles and pricing
+5. amazon_bundles.json - a data file containing the current Amazon bundles and pricing
+6. public_pricing.json - a simplified pricing file for the current region
 
 It also produces some summary estimates of potential savings for example:
 
 	[INFO] Total potential monthly savings: $4557.69
 	[INFO] Total potential yearly savings: $54692.28
-  
-If billing conversion is disabled by configuration you will see:
-
-	[INFO] Not converting billing modes as disabled by configuration
-  
-Otherwise the system outputs statistics of converted instances.
