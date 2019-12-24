@@ -1,32 +1,27 @@
 # Amazon WorkSpaces Cost Optimisation
 
-Provides a simple Node.js script that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.
+Provides a simple Node.js script and Lambda function that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.
 
 This is a Node.js conversion of the existing project that provides a full deployable solution to AWS but for one off usage by customers:
 
 - [WorkSpaces Cost Optimizer](https://docs.aws.amazon.com/solutions/latest/workspaces-cost-optimizer/welcome.html)
 
+It adds the enhancement of reduced configuration (automated download of public pricing) and reduces the deployable footprint (can be run as a script or a simple Lambda function).
+
+## TODO
+
+1. Finish Lambda function deployment and scheduling
+2. Track WorkSpaces usage over multiple months in S3 or DynamoDB and suggest terminations of under-utilised instances
+
 ## Current issues
 
-I am tracking Issue #2 and the impacts of running the tool more than once a month and am disabling automatic update until I fix this bug.
-
-Please use the AWS CLI Script output for now and run sections at your discretion.
+I have disabled automated update of environments for now, use the output script to make discretionary changes to your environment.
 
 ## Important Notes
 
-I have not extensively tested the update facility (although it is quite simple) due to lack of a complex writable AWS environment and limited need to run this script repeatedly.
+Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing) and [Amazon WorkSpaces Pricing](https://aws.amazon.com/workspaces/pricing/).
 
-(Done) I'm looking for a volunteer to enhance the solution by adding an AWS CLI bash script output option that customers can inspect before running.
-
-	!!! (Note) convertBillingMode feature is disabled for now.
-
-(Disabled currently) Enabling the billing conversion flag:
-
-	"convertBillingMode": true
-	
-in your config and executing will currently attempt to flip the billing between monthly and hourly and vice versa if this saves money. 
-
-Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing), you should not run this script on a timer until you understand how (and when) the pricing work, an extract from the FAQ here:
+You should not run this script on a timer until you understand how (and when) the pricing works, an extract from the FAQ here:
 
 **Q: Can I switch between hourly and monthly billing?**
 
@@ -48,7 +43,7 @@ Run the command to fetch the dependencies locally:
 
 ## Credentials
 
-You will either need to run the script on an EC2 instance using an appropriate role or locally with a named profile.
+You will either need to run the script on an EC2 instance or install the Lambda function using the provided CloudFormation template using an appropriate role or locally with a named profile.
 
 You will require the following minimum IAM policy:
 
@@ -77,34 +72,23 @@ Clone the config/example.json configuration file locally and open in an editor.
 	    "directoryId": "XXXXXXXX",
 	    "region": "XXXXXXXX",
 	    "profile": "workspaces",
-	    "daysToEvaluate": 30,
-	    "outputSummaryFile": "usage.csv",
-	    "outputWorkspacesFile": "workspaces.json",
+	    "windowsBYOL": false,
 	    "convertBillingMode": false,
-	    "bundles": [
-	      {
-	        "bundleId": "XXXXXXXX",
-	        "description": "Standard",
-	        "hourlyPrice": 0.39,
-	        "hourlyBasePrice": 14.00,
-	        "monthlyPrice": 45.00
-	      }    
-	    ]
 	  }
   
-Edit the AWS region code (for example: ap-southeast-2), Amazon WorkSpaces directory id and remove or edit the profile name as required.  
+Edit the AWS region code (for example: ap-southeast-2), Amazon WorkSpaces directory id and remove or edit the profile name as required.
 
-You will need to define a bundle object for every deployed bundle, entering the appropriate pricing for the bundle (you can ignore additional allocated storage as this does not affect the billing mode).
+If using 
 
-- [Amazon WorkSpaces Pricing Page](https://aws.amazon.com/workspaces/pricing/)
+The script downloads public WorkSpaces pricing and attempts to price each bundle in use.
 
 Initially, run the program with the config setting:
 
 	"convertBillingMode": false
 
-This will produce a csv file into:
+This will output pricing into:
 
-	"outputSummaryFile": "usage.csv"
+	output/usage.csv
   
 The csv has data that shows the deployed WorkSpace instances and recommendations around potential cost savings.
 
@@ -124,9 +108,14 @@ For more information see:
 
 Run the script using this command, passing your config file of choice:
 
-	node WorkSpacesUsage.js config/example.json
+	node code/WorkSpacesUsageScript.js config/example.json
 
-The script will produce a CSV file containing the raw data, a JSON file containing data about current WorkSpace instances.
+The script will produce the following data files in *./output/*
+
+1. a CSV file containing the raw data
+2. a JSON file containing data about current WorkSpace instances
+3. a command line script for making the suggested changes
+4. data files regarding the current bundles and public pricing
 
 It also produces some summary estimates of potential savings for example:
 
