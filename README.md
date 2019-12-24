@@ -12,6 +12,7 @@ It adds the enhancement of reduced configuration (automated download of public p
 
 1. Finish Lambda function deployment and scheduling
 2. Track WorkSpaces usage over multiple months in S3 or DynamoDB and suggest terminations of under-utilised instances
+3. Track extra allocated user storage or instances
 
 ## Current issues
 
@@ -19,7 +20,7 @@ I have disabled automated update of environments for now, use the output script 
 
 ## Important Notes
 
-Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing) and [Amazon WorkSpaces Pricing](https://aws.amazon.com/workspaces/pricing/).
+Read the [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing) and [Amazon WorkSpaces Pricing](https://aws.amazon.com/workspaces/pricing/) pages.
 
 You should not run this script on a timer until you understand how (and when) the pricing works, an extract from the FAQ here:
 
@@ -78,7 +79,7 @@ Clone the config/example.json configuration file locally and open in an editor.
   
 Edit the AWS region code (for example: ap-southeast-2), Amazon WorkSpaces directory id and remove or edit the profile name as required.
 
-If using 
+If using dedicated hosts and BYOL licensing for Windows, enable the windowsBYOL flag to use BYOL pricing.
 
 The script downloads public WorkSpaces pricing and attempts to price each bundle in use.
 
