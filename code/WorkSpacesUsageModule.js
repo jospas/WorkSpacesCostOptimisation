@@ -8,15 +8,9 @@ var axios = require("axios");
  */
 exports.processConfig = function(config)
 {
-  if (config.convertBillingMode)
-  {
-    console.log("[WARNING] convertBillingMode is currently disabled");
-    config.convertBillingMode = false;
-  }
-
-  console.log("[INFO] Last day of month: " + config.lastDayOfMonth);
-
   config.TotalSavings = 0.0;
+  config.lastDayOfMonth = isLastDayOfMonth();
+  console.log("[INFO] Last day of month: " + config.lastDayOfMonth);
 }
 
 /**
@@ -39,7 +33,8 @@ exports.convertBillingModes = async function(config, awsworkspaces, workspaces)
 
       if (workspace.Action === "CONVERT")
       {
-        if (config.convertBillingMode)
+        // Disabled conversion for now
+        if (false)
         {
           await convertBillingMode(config, awsworkspaces, workspace);
           convertedWorkspaces++;  
@@ -55,9 +50,6 @@ exports.convertBillingModes = async function(config, awsworkspaces, workspaces)
   }
 
   printProgressDivider(config);
-
-  console.log("[INFO] Successfully converted billing model for: " + 
-    convertedWorkspaces + " workspaces");
 
   return outputScript;
 }
@@ -208,6 +200,16 @@ function getComputeType(bundleType)
   bt = bt.replace(/(.*)-[0-9]+/, "$1");
 
   return bt;
+}
+
+/**
+ * Returns true if this is the last day of the month
+ */
+function isLastDayOfMonth()
+{
+  var now = new Date();
+  var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return (lastDay == now.getDate());
 }
 
 /**
@@ -493,7 +495,7 @@ async function convertBillingMode(config, awsworkspaces, workspace)
       retry++;
     }
   }
-  throw new Error("Failed to convert workspace, maximum retry count exceeded: " + lastError.message);
+  throw new Error("Failed to convert a workspace, maximum retry count exceeded: " + lastError.message);
 }
 
 /**
@@ -545,8 +547,13 @@ function analyseResults(config, workspace, bundles)
   workspace.Action = "KEEP";
   workspace.Savings = 0.0;
 
-  workspace.HourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
-  workspace.MonthlyCost = bundle.monthlyPrice;
+  workspace.BilledDays = new Date().getDate() - 1;
+  workspace.HourlyBasePrice = bundle.hourlyBasePrice;
+  workspace.HourlyPrice = bundle.hourlyPrice;
+  workspace.MonthlyPrice = bundle.monthlyPrice;
+  workspace.OptimalMonthlyHours = bundle.optimalMonthlyHours;
+
+  var hourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
 
   /**
    * Convert hourly billing to monthly if the current use plus the
@@ -554,13 +561,13 @@ function analyseResults(config, workspace, bundles)
    */
   if (runningMode === "AUTO_STOP")
   {
-    workspace.UsageCost = workspace.HourlyCost;
+    workspace.UsageCost = hourlyCost;
     workspace.Mode = "HOURLY";
 
     if (workspace.ConnectedHours >= bundle.optimalMonthlyHours)
     {
       workspace.Action = "CONVERT";
-      workspace.Savings = workspace.HourlyCost - bundle.monthlyPrice;
+      workspace.Savings = hourlyCost - bundle.monthlyPrice;
     }
   }
   /**
@@ -574,7 +581,7 @@ function analyseResults(config, workspace, bundles)
     if (config.lastDayOfMonth && (workspace.ConnectedHours < bundle.optimalMonthlyHours))
     {
       workspace.Action = "CONVERT";
-      workspace.Savings = bundle.monthlyPrice - workspace.HourlyCost;
+      workspace.Savings = bundle.monthlyPrice - hourlyCost;
     }
   }
 
@@ -847,7 +854,8 @@ function getSleepTime(retry)
 /**
  * Print progress to console if we are in interactive mode
  */
-function printProgress(config, message) {
+function printProgress(config, message) 
+{
   if (process.stdout.isTTY)
   {
     process.stdout.clearLine();
@@ -859,10 +867,61 @@ function printProgress(config, message) {
 /**
  * In interactive mode print a new line
  */
-function printProgressDivider(config) {
+function printProgressDivider(config) 
+{
   if (process.stdout.isTTY)
   {
     console.log("");
+  }
+}
+
+/**
+ * Saves records to DynamoDB
+ */
+exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspaces)
+{
+  try
+  {
+    var now = new Date();
+    var period = sprintf("%d-%02d", now.getFullYear(), now.getMonth() + 1);
+
+    console.log("[INFO] Writing usage data to DynamoDB table: " + config.dynamoDBTable);
+
+    for (var i = 0; i < workspaces.length; i++)
+    {
+      var workspace = workspaces[i];
+
+      var params = {
+        TableName: config.dynamoDBTable,
+        Item: 
+        {
+            "workspaceId" : {"S": workspace.WorkspaceId},
+            "userId" : {"S": workspace.UserName},
+            "period" : {"S": period},
+            "usageData" : {"S": JSON.stringify(workspace)},
+            "connectedHours" : {"N": "" + workspace.ConnectedHours},
+            "meanUsage" : {"N": "" + workspace.MeanUsage},
+            "medianUsage" : {"N": "" + workspace.MedianUsage},
+            "maxUsage" : {"N": "" + workspace.MaxUsage},
+            "runningMode" : {"S": workspace.Mode},
+            "billedDays" : {"N": "" + workspace.BilledDays},
+            "computeType": {"S": workspace.WorkspaceProperties.ComputeTypeName},
+            "usageCost": {"S": "" + workspace.UsageCost},
+            "savings": {"S": "" + workspace.Savings},
+            "action": {"S": "" + workspace.Action},
+            "processedDate":  {"S": now.toISOString() }
+        }
+      };
+
+      var putResponse = await dynamoDB.putItem(params).promise();
+    }
+
+    console.log("[INFO] Writing usage data to DynamoDB is complete");
+  }
+  catch (error)
+  {
+    console.log("[ERROR] Failed to write to DynamoDB", error);
+    throw error;
   }
 }
 

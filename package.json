@@ -10,8 +10,11 @@
     "url": "https://github.com/jospas/WorkSpacesCostOptimisation.git"
   },
   "dependencies": {
-    "aws-sdk": "^2.596.0",
     "sprintf-js": "^1.1.2",
     "axios": "^0.19.0"
+  },
+  "devDependencies": {
+    "serverless-parameters": "^0.1.0",
+    "aws-sdk": "^2.596.0"
   }
 }

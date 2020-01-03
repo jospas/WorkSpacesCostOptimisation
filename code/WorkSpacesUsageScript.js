@@ -1,8 +1,8 @@
 
-var fs = require('fs');
-var sprintf = require('sprintf-js').sprintf;
-var AWS = require('aws-sdk');
-var ws = require('./WorkSpacesUsageModule');
+var fs = require("fs");
+var sprintf = require("sprintf-js").sprintf;
+var AWS = require("aws-sdk");
+var ws = require("./WorkSpacesUsageModule");
 
 /**
  * Program entry point that looks up all workspaces and
