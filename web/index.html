@@ -11,28 +11,28 @@
   <div class="col-md-12">
     <div class="row">
       <div class="col-md-4">
-        <canvas id="billingSplit" style="height: 250px; width: 100%;"></canvas>
+        <canvas id="billingSplit" style="height: 200px; width: 100%;"></canvas>
       </div>
       <div class="col-md-4">
-        <canvas id="computeSplit" style="height: 250px; width: 100%;"></canvas>
+        <canvas id="computeSplit" style="height: 200px; width: 100%;"></canvas>
       </div>
       <div class="col-md-4">
-        <canvas id="usedUnusedSplit" style="height: 250px; width: 100%;"></canvas>
+        <canvas id="idleSplit" style="height: 200px; width: 100%;"></canvas>
       </div>
     </div>
     <div class="row">
       <div class="col-md-6">
-        <canvas id="hourlyUsage" style="height: 250px; width: 100%;"></canvas>
+        <canvas id="hourlyUsage" style="height: 200px; width: 100%;"></canvas>
       </div>
       <div class="col-md-6">
-        <canvas id="monthlyUsage" style="height: 250px; width: 100%;"></canvas>
+        <canvas id="monthlyUsage" style="height: 200px; width: 100%;"></canvas>
       </div>
     </div>
   </div>
   <div class="col-md-12">
     <div class="row">
       <div class="col-md-6">
-        <canvas id="singleUsage" style="height: 300px; width: 100%;"></canvas>
+        <canvas id="singleUsage" style="height: 200px; width: 100%;"></canvas>
       </div>
       <div class="col-md-6">
         <div id="instanceDetails">
@@ -185,21 +185,21 @@ function getBillingSplit(workspaces)
     };
 }
 
-function getUsedUnusedSplit(workspaces)
+function getIdleSplit(workspaces)
 {
-    var used = workspaces.filter(workspace => workspace.ConnectedHours > 0);
-    var unused = workspaces.filter(workspace => workspace.ConnectedHours == 0);
+    var utilised = workspaces.filter(workspace => workspace.ConnectedHours > 0);
+    var idle = workspaces.filter(workspace => workspace.ConnectedHours == 0);
 
     return {
         datasets: [{
-            data: [used.length, unused.length],
+            data: [utilised.length, idle.length],
             backgroundColor: [
                 '#6fd55b', '#ffc000'
             ]             
         }],
         labels: [
-            'Used workspaces',
-            'Unused workspaces'
+            'Utilised workspaces',
+            'Idle workspaces'
         ]       
     };}
 
@@ -333,7 +333,7 @@ function extractInstanceDetails(workspaceId)
                                 '<b>Current cost:</b>' +
                             '</div>' +
                             '<div class="col-md-8">$' + 
-                                workspace.UsageCost +
+                                workspace.UsageCost.toFixed(2) +
                             '</div>' +
                         '</div>' +    
                         '<div class="row">' +
@@ -341,7 +341,7 @@ function extractInstanceDetails(workspaceId)
                                 '<b>Prediction:</b>' +
                             '</div>' +
                             '<div class="col-md-8">' + 
-                                workspace.PredictedCrossOver + ' days' +
+                                workspace.PredictedCrossOver.toFixed(2) + ' days' +
                             '</div>' +
                         '</div>' + 
                         '<div class="row">' +
@@ -421,7 +421,7 @@ function createCharts(workspaces)
     var monthlyContext = document.getElementById('monthlyUsage').getContext('2d');
     var billingSplitContext = document.getElementById('billingSplit').getContext('2d');
     var computeSplitContext = document.getElementById('computeSplit').getContext('2d');
-    var usedUnusedSplitContext = document.getElementById('usedUnusedSplit').getContext('2d');    
+    var idleSplitContext = document.getElementById('idleSplit').getContext('2d');    
 
     var graphLabels = [];
 
@@ -517,9 +517,9 @@ function createCharts(workspaces)
         }
     });  
 
-    var usedUnusedSplitChart = new Chart(usedUnusedSplitContext, {
+    var idleSplitChart = new Chart(idleSplitContext, {
         type: 'doughnut',
-        data: getUsedUnusedSplit(workspaces),
+        data: getIdleSplit(workspaces),
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -529,7 +529,7 @@ function createCharts(workspaces)
             },
             title: {
                 display: true,
-                text: ['Amazon WorkSpaces', 'Used versus unused']
+                text: ['Amazon WorkSpaces', 'Idle instances']
             }
         }
     });   
