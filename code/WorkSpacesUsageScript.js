@@ -25,14 +25,19 @@ async function run ()
     // Processes the config
     ws.processConfig(config);
 
+    // Set the region from config
+    AWS.config.update({region: config.region});    
+
+    // Use default credentials for now
+    var awsdynamodb = new AWS.DynamoDB();
+    var amazons3 = new AWS.S3();
+
     // If we are using a profile credentials provider, enable it
     if (config.profile)
     {
       var credentials = new AWS.SharedIniFileCredentials({profile: config.profile});
       AWS.config.credentials = credentials;
     }
-    // Set the region from config
-    AWS.config.update({region: config.region});
     
     // Initialise AWS components post region and credentials setup
     var awsworkspaces = new AWS.WorkSpaces();
@@ -79,9 +84,14 @@ async function run ()
     fs.writeFileSync("output/updateBilling.sh", outputScript);
     console.log("[INFO] Wrote update billing script to: output/updateBilling.sh"); 
 
+    // Save the usage data to DynamoDB
+    await ws.saveToDynamoDB(config, awsdynamodb, workspaces);
+
+    // Save as Parquet in S3
+    await ws.writeParquetFile(config, amazons3, workspaces);
+
     // Success
     process.exit(0);
-
   }
   catch (error)
   {

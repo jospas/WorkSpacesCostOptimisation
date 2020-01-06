@@ -1,6 +1,7 @@
 config/*.json
 output/
 .serverless/
+web/workspaces.json
 
 # Logs
 logs

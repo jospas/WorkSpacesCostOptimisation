@@ -2,6 +2,8 @@ var fs = require("fs");
 var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
 var axios = require("axios");
+var parquet = require("parquetjs");
+var moment = require("moment");
 
 /**
  * Processes the config
@@ -162,7 +164,7 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
     "HourlyBasePrice,HourlyPrice,MonthlyPrice,OptimalMonthlyHours," +
     "DirectoryId,WorkSpaceId,UserName,ComputerName," +
     "State,ComputeType,CurrentMode," +
-    "ConnectedHours,UsageCost," +
+    "ConnectedHours,UsageCost,Utilisation," +
     "MaxUsage,MedianUsage,MeanUsage," +
     "Action,Savings\n";
 
@@ -207,9 +209,9 @@ function getComputeType(bundleType)
  */
 function isLastDayOfMonth()
 {
-  var now = new Date();
-  var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  return (lastDay == now.getDate());
+  var daysInMonth = getDaysInMonth();
+  var now = moment.utc();
+  return (daysInMonth == now.date());
 }
 
 /**
@@ -467,7 +469,8 @@ async function convertBillingMode(config, awsworkspaces, workspace)
   {
     try
     {
-      var params = {
+      var params = 
+      {
         WorkspaceId: workspace.WorkspaceId,
         WorkspaceProperties: { }
       };
@@ -521,18 +524,18 @@ function getBundle(workspace, bundles)
 /**
  * Fetches the number of days left in a month for a given date
  */
-function getDaysLeftInMonth(inputDate)
+function getDaysLeftInMonth()
 {
-  var daysInMonth = getDaysInMonth(inputDate);
-  return daysInMonth - inputDate.getDate();
+  var daysInMonth = getDaysInMonth();
+  return daysInMonth - moment.utc().date();
 }
 
 /**
  * Fetches the number of days in a month
  */
-function getDaysInMonth(inputDate)
+function getDaysInMonth()
 {
-  return new Date(inputDate.getFullYear(), inputDate.getMonth() + 1, 0).getDate();
+  return moment().utc().daysInMonth();
 }
 
 /**
@@ -547,7 +550,21 @@ function analyseResults(config, workspace, bundles)
   workspace.Action = "KEEP";
   workspace.Savings = 0.0;
 
-  workspace.BilledDays = new Date().getDate() - 1;
+  workspace.BundleDescription = bundle.Description;
+
+  // The number of hours in this month that could have been billed
+  var now = moment.utc();
+  var start = getStartDate();
+  var duration = moment.duration(now.diff(start));
+  workspace.BillableHours = +duration.asHours().toFixed(2);
+
+  workspace.Utilisation = 0.00;
+
+  if (workspace.BillableHours > 0)
+  {
+    workspace.Utilisation = +(workspace.ConnectedHours / workspace.BillableHours).toFixed(2);
+  }
+
   workspace.HourlyBasePrice = bundle.hourlyBasePrice;
   workspace.HourlyPrice = bundle.hourlyPrice;
   workspace.MonthlyPrice = bundle.monthlyPrice;
@@ -587,8 +604,8 @@ function analyseResults(config, workspace, bundles)
 
   var line = sprintf("%s,%s,%.2f,%.2f,%.2f,%d," +
       "%s,%s,%s,%s,%s,%s,%s," +
-      "%d,%.2f," +
-      "%d,%d,%d," +
+      "%d,%.2f,%.2f," +
+      "%d,%d,%.1f," +
       "%s,%.2f\n",
 
     bundle.BundleId, 
@@ -608,6 +625,7 @@ function analyseResults(config, workspace, bundles)
 
     workspace.ConnectedHours,
     workspace.UsageCost,
+    workspace.Utilisation,
 
     workspace.MaxUsage,
     workspace.MedianUsage,
@@ -682,15 +700,11 @@ async function getWorkspacesPage(params, awsworkspaces)
 /**
  * Fetches the start of the workspaces billing month
  * which should be midnight on the 1st of the month in
- * Pacific Time (UTC -07:00) but I am using local time here 
- * or this fails on the 1st on the month in forward timezones
- * like Australia.
+ * Pacific Time (UTC -07:00)
  */
 function getStartDate()
 {
-  var now = new Date();
-  var startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  return startDate;
+  return moment.utc().startOf('month').add(7, 'hours');
 }
 
 /**
@@ -766,13 +780,13 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
   var lastError = null;
 
   var startDate = getStartDate();
-  var endDate = new Date();
+  var endDate = moment.utc()
 
   var params = {
     Dimensions: [],
     Namespace: "AWS/WorkSpaces",
-    StartTime: startDate,
-    EndTime: endDate,
+    StartTime: startDate.toDate(),
+    EndTime: endDate.toDate(),
     Period: 3600
   };
 
@@ -793,7 +807,7 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
       var billableTime = 0;
 
       workspace.DailyUsage = [];
-      workspace.DailyUsage.length = getDaysInMonth(new Date());
+      workspace.DailyUsage.length = getDaysInMonth();
       workspace.DailyUsage.fill(0);
 
       for (var m = 0; m < metrics.Datapoints.length; m++)
@@ -801,8 +815,8 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
         if (metrics.Datapoints[m].Maximum > 0)
         {
           // Track daily aggregate usage (in UTC)
-          var when = new Date(metrics.Datapoints[m].Timestamp);
-          workspace.DailyUsage[when.getDate() - 1]++;
+          var when = moment.utc(metrics.Datapoints[m].Timestamp);
+          workspace.DailyUsage[when.date() - 1]++;
 
           // Track a billable hour
           billableTime++;
@@ -830,6 +844,16 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
  * Sleeps for the requested millis
  */
 function sleep(millis)
+{
+  return new Promise(resolve => {
+      setTimeout(resolve, millis);
+  });
+}
+
+/**
+ * Sleeps for the requested millis
+ */
+exports.sleepExport = function sleepExport(millis)
 {
   return new Promise(resolve => {
       setTimeout(resolve, millis);
@@ -882,8 +906,8 @@ exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspa
 {
   try
   {
-    var now = new Date();
-    var period = sprintf("%d-%02d", now.getFullYear(), now.getMonth() + 1);
+    var now = moment.utc();
+    var period = now.format("YYYY-MM");
 
     console.log("[INFO] Writing usage data to DynamoDB table: " + config.dynamoDBTable);
 
@@ -899,16 +923,21 @@ exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspa
             "userId" : {"S": workspace.UserName},
             "period" : {"S": period},
             "usageData" : {"S": JSON.stringify(workspace)},
-            "connectedHours" : {"N": "" + workspace.ConnectedHours},
             "meanUsage" : {"N": "" + workspace.MeanUsage},
             "medianUsage" : {"N": "" + workspace.MedianUsage},
             "maxUsage" : {"N": "" + workspace.MaxUsage},
             "runningMode" : {"S": workspace.Mode},
-            "billedDays" : {"N": "" + workspace.BilledDays},
+            "billableHours" : {"N": "" + workspace.BillableHours},
+            "connectedHours" : {"N": "" + workspace.ConnectedHours},            
+            "utilisation": {"N": "" + workspace.Utilisation},
             "computeType": {"S": workspace.WorkspaceProperties.ComputeTypeName},
             "usageCost": {"S": "" + workspace.UsageCost},
             "savings": {"S": "" + workspace.Savings},
             "action": {"S": "" + workspace.Action},
+            "hourlyBasePrice": {"N": "" + workspace.HourlyBasePrice},
+            "hourlyPrice": {"N": "" + workspace.HourlyPrice},
+            "monthlyPrice": {"N": "" + workspace.MonthlyPrice},
+            "optimalMonthlyHours": {"N": "" + workspace.OptimalMonthlyHours},
             "processedDate":  {"S": now.toISOString() }
         }
       };
@@ -921,6 +950,111 @@ exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspa
   catch (error)
   {
     console.log("[ERROR] Failed to write to DynamoDB", error);
+    throw error;
+  }
+}
+
+/**
+ * Creates a Parquet file and writes this to S3
+ */
+exports.writeParquetFile = async function writeParquetFile(config, s3, workspaces)
+{
+  if (!config.s3Bucket || !config.s3Prefix)
+  {
+    console.log("[INFO] writing to S3 is disabled");
+    return;
+  }
+
+  try
+  {
+    var opts = { compression: "SNAPPY" };
+
+    var schema = new parquet.ParquetSchema(
+    {
+      workspaceId : {type: "UTF8", compression: opts.compression},
+      userId : {type: "UTF8", compression: opts.compression},
+      bundleId: {type: "UTF8", compression: opts.compression},
+      bundleDescription: {type: "UTF8", compression: opts.compression},
+      hourlyBasePrice: {type: "FLOAT", compression: opts.compression},
+      hourlyPrice: {type: "FLOAT", compression: opts.compression},
+      monthlyPrice: {type: "FLOAT", compression: opts.compression},
+      optimalMonthlyHours: {type: "FLOAT", compression: opts.compression},
+      runningMode: {type: "UTF8", compression: opts.compression},
+      processedDate: {type: "UTF8", compression: opts.compression},
+      action: {type: "UTF8", compression: opts.compression},
+      computeType: {type: "UTF8", compression: opts.compression},
+      billableHours: {type: "INT32", compression: opts.compression},
+      connectedHours: {type: "INT32", compression: opts.compression},
+      utilisation: {type: "FLOAT", compression: opts.compression},
+      meanUsage: {type: "FLOAT", compression: opts.compression},
+      medianUsage: {type: "FLOAT", compression: opts.compression},
+      maxUsage: {type: "FLOAT", compression: opts.compression},
+      usageCost: {type: "FLOAT", compression: opts.compression},
+      savings: {type: "FLOAT", compression: opts.compression}
+    });
+
+    var now = moment.utc();
+    var nowString = now.toISOString();
+    var fileName = sprintf("workspace-usage-%d-%02d.snappy.parquet", 
+      now.year(), now.month());
+    var localFile = "output/usage.parquet";
+    fs.mkdirSync("./output", { recursive: true });
+    var s3Path = sprintf("%sdirectory=%s/when=%d-%02d/%s", 
+      config.s3Prefix, config.directoryId, now.year(), now.month(), fileName);
+
+    var parquetWriter = await parquet.ParquetWriter.openFile(schema, localFile, opts);
+
+    for (var i = 0; i < workspaces.length; i++)
+    {
+      var workspace = workspaces[i];
+
+      await parquetWriter.appendRow(
+      {
+        workspaceId : workspace.WorkspaceId,
+        userId : workspace.UserName,
+        bundleId: workspace.BundleId,
+        bundleDescription: workspace.BundleDescription,
+        hourlyBasePrice: workspace.HourlyBasePrice,
+        hourlyPrice: workspace.HourlyPrice,
+        monthlyPrice: workspace.MonthlyPrice,
+        optimalMonthlyHours: workspace.OptimalMonthlyHours,
+        runningMode: workspace.Mode,
+        processedDate: nowString,
+        action: workspace.Action,
+        computeType: workspace.WorkspaceProperties.ComputeTypeName,
+        billableHours: workspace.BillableHours,
+        connectedHours: workspace.ConnectedHours,
+        utilisation: workspace.Utilisation,
+        meanUsage: workspace.MeanUsage,
+        medianUsage: workspace.MedianUsage,
+        maxUsage: workspace.MaxUsage,
+        usageCost: workspace.UsageCost,
+        savings: workspace.Savings
+      });
+    }
+
+    await parquetWriter.close();
+
+    console.log("[INFO] Writing parquet file to: s3://%s/%s", config.s3Bucket, s3Path);
+
+    const fileContent = fs.readFileSync(localFile);
+
+    var putRequest = {
+      Bucket: config.s3Bucket,
+      Key: s3Path,
+      Body: fileContent,
+      ContentType: "application/parquet"
+    };
+
+    var response = await s3.putObject(putRequest).promise();
+
+    console.log("[INFO] S3 upload is complete");
+
+    // TODO upsert partition into Glue    
+  }
+  catch (error)
+  {
+    console.log("[ERROR] Failed to create Parquet file", error);
     throw error;
   }
 }

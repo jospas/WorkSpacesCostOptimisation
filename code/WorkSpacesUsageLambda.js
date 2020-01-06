@@ -17,6 +17,7 @@ exports.handler = async (event, context, callback) =>
 
         // Use local Lambda credentials for DynamoDB
         var awsdynamodb = new AWS.DynamoDB();
+        var amazons3 = new AWS.S3();
 
         // Updates AWS config
         updateAWSConfig(config);
