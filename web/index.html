@@ -73,7 +73,7 @@ function getUsage(workspace, dataSets, lineColor, acceptEmpty)
     var hours = 0;
 
     workspace.DailyUsage.forEach(usage =>{
-        if (hours < (workspace.BillableHours + 24))
+        if (hours < (workspace.BillableHours + 12))
         {
             cumulativeUse += usage;
             dataSet.data.push(cumulativeUse);
@@ -110,7 +110,7 @@ function getSingleUsage(workspace)
     var hours = 0;
 
     workspace.DailyUsage.forEach(usage =>{
-        if (hours < (workspace.BillableHours + 24))
+        if (hours < (workspace.BillableHours + 12))
         {
             cumulativeUse += usage;
             dataSet.data.push(cumulativeUse);
@@ -153,9 +153,9 @@ function getSingleUsage(workspace)
     };
 
     var optimalDailyUse = workspace.OptimalMonthlyHours / workspace.DailyUsage.length;
-    var currentOptimalUsage = 0;    
+    var currentOptimalUsage = optimalDailyUse;    
 
-    for (var i = 0; i <= workspace.DailyUsage.length; i++) {
+    for (var i = 0; i < workspace.DailyUsage.length; i++) {
         optimalDailyDataSet.data.push(+currentOptimalUsage.toFixed(1));
         currentOptimalUsage += optimalDailyUse;
     }    
@@ -330,12 +330,28 @@ function extractInstanceDetails(workspaceId)
                         '</div>' +  
                         '<div class="row">' +
                             '<div class="col-md-4">' + 
-                                '<b>Cost:</b>' +
+                                '<b>Current cost:</b>' +
                             '</div>' +
                             '<div class="col-md-8">$' + 
                                 workspace.UsageCost +
                             '</div>' +
-                        '</div>' +                       
+                        '</div>' +    
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Prediction:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.PredictedCrossOver + ' days' +
+                            '</div>' +
+                        '</div>' + 
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Action:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.PredictionAction +
+                            '</div>' +
+                        '</div>' +  
                     '</div>';
 
         $("#instanceDetails").html(html);                        
@@ -544,7 +560,7 @@ function getBestFit(workspace)
     var hours = 0;
 
     workspace.DailyUsage.forEach(usage =>{
-        if (hours < (workspace.BillableHours + 24))
+        if (hours < (workspace.BillableHours + 12))
         {
             cumulativeUse += usage;
             ySeries.push(cumulativeUse);
@@ -574,6 +590,32 @@ function getBestFit(workspace)
         {
             break;
         }
+    }
+
+    var intersectionPoint = (workspace.OptimalMonthlyHours - leastSquaresCoeff[2]) / 
+        leastSquaresCoeff[0];
+
+    console.log('[INFO] Prediction: ' + 
+        intersectionPoint.toFixed(1) + ' days');
+
+    workspace.PredictedCrossOver = +intersectionPoint.toFixed(1);
+
+    /**
+     * Make a recommendation to the customer on conversion
+     */
+    if ((workspace.Mode === 'HOURLY') && 
+        (workspace.PredictedCrossOver < workspace.DailyUsage.length))
+    {
+        workspace.PredictionAction = 'Convert to monthly immediately';
+    }
+    else if ((workspace.Mode === 'MONTHLY') && 
+        (workspace.PredictedCrossOver > workspace.DailyUsage.length))
+    {
+        workspace.PredictionAction = 'Convert to hourly at end of month';
+    }
+    else
+    {
+        workspace.PredictionAction = 'Keep';
     }
 
     return bestFitDataSet;
