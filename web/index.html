@@ -341,7 +341,8 @@ function extractInstanceDetails(workspaceId)
                                 '<b>Prediction:</b>' +
                             '</div>' +
                             '<div class="col-md-8">' + 
-                                workspace.PredictedCrossOver.toFixed(2) + ' days' +
+                                workspace.PredictedCrossOver.toFixed(2) + 
+                                ' days (confidence: ' + workspace.PredictionConfidence + ')' +
                             '</div>' +
                         '</div>' + 
                         '<div class="row">' +
@@ -577,6 +578,8 @@ function getBestFit(workspace)
 
     var leastSquaresCoeff = leastSquares(xSeries, ySeries);
 
+    console.log("%j", leastSquaresCoeff);
+
     var x1 = 1;
     var y1 = leastSquaresCoeff[0] + leastSquaresCoeff[1];
 
@@ -599,6 +602,7 @@ function getBestFit(workspace)
         intersectionPoint.toFixed(1) + ' days');
 
     workspace.PredictedCrossOver = +intersectionPoint.toFixed(1);
+    workspace.PredictionConfidence = leastSquaresCoeff[2].toFixed(2);
 
     /**
      * Make a recommendation to the customer on conversion
@@ -640,7 +644,7 @@ function leastSquares(xSeries, ySeries)
     var slope = ssXY / ssXX;
     var intercept = yBar - (xBar * slope);
     var rSquare = Math.pow(ssXY, 2) / (ssXX * ssYY);
-    
+
     return [slope, intercept, rSquare];
 }
 
