@@ -103,3 +103,20 @@ It also produces some summary estimates of potential savings for example:
 
 	[INFO] Total potential monthly savings: $4557.69
 	[INFO] Total potential yearly savings: $54692.28
+
+## Dashboard
+
+The system bundles a simple dashboard for viewing usage statistics. To run the dashboard locally simply copy the output data file to the web folder:
+
+	cp output/workspaces.json web/
+	
+Start a local webserver from the web/ folder:
+
+	cd web/
+	python -m SimpleHTTPServer 8001
+	
+Open your browser to http://localhost:8001
+
+The dashboard shows various usage statistics and allows prediction of monthly usage:
+
+![documentation/dashboard.png](documentation/dashboard_thumb.png)
