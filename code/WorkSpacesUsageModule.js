@@ -569,6 +569,8 @@ function analyseResults(config, workspace, bundles)
   workspace.HourlyPrice = bundle.hourlyPrice;
   workspace.MonthlyPrice = bundle.monthlyPrice;
   workspace.OptimalMonthlyHours = bundle.optimalMonthlyHours;
+  workspace.StartOfMonth = getStartDate().format();
+  workspace.EndOfMonth = getEndDate().format();
 
   var hourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
 
@@ -704,7 +706,17 @@ async function getWorkspacesPage(params, awsworkspaces)
  */
 function getStartDate()
 {
-  return moment.utc().startOf('month').add(7, 'hours');
+  return moment.utc().startOf('month').add(-7, 'hours');
+}
+
+/**
+ * Fetches the end of the workspaces billing month
+ * which should be midnight on the lastday of the month in
+ * Pacific Time (UTC -07:00)
+ */
+function getEndDate()
+{
+  return moment.utc().endOf('month').add(-7, 'hours');
 }
 
 /**
@@ -814,8 +826,9 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
       {
         if (metrics.Datapoints[m].Maximum > 0)
         {
-          // Track daily aggregate usage (in UTC)
-          var when = moment.utc(metrics.Datapoints[m].Timestamp);
+          // Track daily aggregate usage (in UTC) offset by 7 hours to make this align with
+          // the billing month -7 UTC
+          var when = moment.utc(metrics.Datapoints[m].Timestamp).add(7, 'hours');
           workspace.DailyUsage[when.date() - 1]++;
 
           // Track a billable hour
@@ -943,7 +956,11 @@ exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspa
       };
 
       var putResponse = await dynamoDB.putItem(params).promise();
+
+      printProgress(config, sprintf("[INFO] Writing usage to DynamoDB: %.0f%%", i * 100.0 / workspaces.length));
     }
+
+    printProgressDivider();
 
     console.log("[INFO] Writing usage data to DynamoDB is complete");
   }
