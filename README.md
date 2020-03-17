@@ -119,4 +119,4 @@ Open your browser to http://localhost:8001
 
 The dashboard shows various usage statistics and allows prediction of monthly usage:
 
-![documentation/dashboard.png](documentation/dashboard_thumb.png)
+![Dashboard](documentation/dashboard.png)
