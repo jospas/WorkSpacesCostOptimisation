@@ -130,3 +130,8 @@ resources:
               KeyType: RANGE
             Projection:
               ProjectionType: ALL
+
+    S3BucketLake:
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        BucketName: !Join [ '', [ '${self:custom.stage}-workspaces-', !Ref AWS::Region, '-', !Ref AWS::AccountId ]]

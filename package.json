@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "sprintf-js": "^1.1.2",
-    "axios": "^0.19.0"
+    "axios": "^0.19.0",
+    "parquetjs": "^0.11.2",
+    "moment": "^2.24.0"
   },
   "devDependencies": {
     "serverless-parameters": "^0.1.0",

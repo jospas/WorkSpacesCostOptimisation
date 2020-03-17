@@ -1,0 +1,748 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+</head>
+
+<body>
+  <div class="col-md-12">
+    <div class="row">
+      <div class="col-md-4">
+        <canvas id="billingSplit" style="height: 200px; width: 100%;"></canvas>
+      </div>
+      <div class="col-md-4">
+        <canvas id="computeSplit" style="height: 200px; width: 100%;"></canvas>
+      </div>
+      <div class="col-md-4">
+        <canvas id="idleSplit" style="height: 200px; width: 100%;"></canvas>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6">
+        <canvas id="hourlyUsage" style="height: 200px; width: 100%;"></canvas>
+      </div>
+      <div class="col-md-6">
+        <canvas id="monthlyUsage" style="height: 200px; width: 100%;"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-12">
+    <div class="row">
+      <div class="col-md-6">
+        <canvas id="singleUsage" style="height: 200px; width: 100%;"></canvas>
+      </div>
+      <div class="col-md-6">
+        <div id="instanceDetails">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-12">
+    <div class="row">
+      <div class="col-md-12">
+        <br>
+        <table id="workspacesTable" class="display" width="100%"></table>
+      </div>
+    </div>
+  <div>
+</span>
+
+<script>
+
+var workspaces = null;
+
+$(document).ready(function() {
+    $.getJSON('workspaces.json', function(data) {
+        workspaces = data;
+        createCharts(workspaces);
+        createTable(workspaces);
+    });
+});
+
+var hourlyUsageChart = null;
+var monthlyUsageChart = null;
+var singleUsageChart = null;
+var billingModeChart = null;
+var computeTypeChart = null;
+
+function createTable(workspaces)
+{
+    $('#workspacesTable').DataTable( {
+        data: createTableDataset(workspaces),
+        columns: [
+            { title: "Workspace" },
+            { title: "User" },
+            { title: "Type" },
+            { title: "Mode" },
+            { title: "Usage" },
+            { title: "Action" }
+        ]
+    } );
+
+    var table = $('#workspacesTable').DataTable();
+ 
+    $('#workspacesTable tbody').on('click', 'tr', function () {
+        var workspaceId = table.row( this ).data()[0];
+        createSingleChart(workspaceId);
+        extractInstanceDetails(workspaceId);
+    });
+
+}
+
+function createTableDataset(workspaces)
+{
+    var dataSet = [];
+
+    workspaces.forEach(workspace => {
+        var line = [
+            workspace.WorkspaceId,
+            workspace.UserName,
+            workspace.WorkspaceProperties.ComputeTypeName,
+            workspace.Mode,
+            workspace.ConnectedHours,
+            workspace.Action
+        ];
+        dataSet.push(line);
+    });
+
+    return dataSet;
+}
+
+/**
+ * Collect usage for a workspace into the dataSets array
+ */
+function getUsage(workspace, dataSets, lineColor, acceptEmpty)
+{
+    var dataSet = {
+        label: workspace.WorkspaceId,
+        borderWidth: 1,
+        lineTension: 0,
+        fill: false,
+        backgroundColor: lineColor,
+        data: []
+    };
+    var cumulativeUse = 0;
+    var hours = 0;
+
+    workspace.DailyUsage.forEach(usage =>{
+        if (hours < (workspace.BillableHours + 12))
+        {
+            cumulativeUse += usage;
+            dataSet.data.push(cumulativeUse);
+            hours += 24;
+        }
+    });
+
+    if (cumulativeUse > 0 || acceptEmpty)
+    {
+        dataSets.push(dataSet);
+    }
+}
+
+function getSingleUsage(workspace)
+{
+    var lineColor = 'rgba(0, 0, 255, 0.3)';
+
+    if (workspace.Mode === 'HOURLY')
+    {
+        lineColor = 'rgba(0, 255, 0, 0.3)';
+    }
+
+    var dataSets = [];
+
+    var dataSet = {
+        label: workspace.WorkspaceId,
+        borderWidth: 1,
+        lineTension: 0,
+        fill: false,
+        backgroundColor: lineColor,
+        data: []
+    };
+    var cumulativeUse = 0;
+    var hours = 0;
+
+    workspace.DailyUsage.forEach(usage =>{
+        if (hours < (workspace.BillableHours + 12))
+        {
+            cumulativeUse += usage;
+            dataSet.data.push(cumulativeUse);
+            hours += 24;
+        }
+    });
+
+    dataSets.push(dataSet);
+
+    var optimalUsageDataSet = {
+        label: 'Optimal monthly usage',
+        borderWidth: 1,
+        lineTension: 0,
+        fill: false,
+        borderColor: 'rgba(255, 0, 0, 1)',
+        backgroundColor: 'rgba(255, 0, 0, 1)',
+        pointRadius: 0,
+        pointHitRadius: 2,
+        data: []
+    };
+
+    for (var i = 0; i <= workspace.DailyUsage.length; i++) {
+        optimalUsageDataSet.data.push(workspace.OptimalMonthlyHours);
+    }
+
+    dataSets.push(optimalUsageDataSet);
+
+    var optimalDailyUse = workspace.OptimalMonthlyHours / workspace.DailyUsage.length;
+
+    var optimalDailyDataSet = {
+        label: 'Optimal daily usage',
+        borderWidth: 1,
+        lineTension: 0,
+        fill: false,
+        borderColor: 'rgba(0, 255, 0, 1)',
+        backgroundColor: 'rgba(0, 255, 0, 1)',
+        pointRadius: 0,
+        pointHitRadius: 2,
+        data: []
+    };
+
+    var optimalDailyUse = workspace.OptimalMonthlyHours / workspace.DailyUsage.length;
+    var currentOptimalUsage = optimalDailyUse;    
+
+    for (var i = 0; i < workspace.DailyUsage.length; i++) {
+        optimalDailyDataSet.data.push(+currentOptimalUsage.toFixed(1));
+        currentOptimalUsage += optimalDailyUse;
+    }    
+
+    dataSets.push(optimalDailyDataSet);
+    dataSets.push(getBestFit(workspace));
+
+    return dataSets;
+}
+
+function getBillingSplit(workspaces)
+{
+    var monthly = workspaces.filter(workspace => workspace.Mode === 'MONTHLY');
+    var hourly = workspaces.filter(workspace => workspace.Mode === 'HOURLY');
+
+    return {
+        datasets: [{
+            data: [monthly.length, hourly.length],
+            backgroundColor: [
+                '#5b8cd5', '#6fd55b'
+            ]             
+        }],
+        labels: [
+            'Monthly billing',
+            'Hourly billing'
+        ]       
+    };
+}
+
+function getIdleSplit(workspaces)
+{
+    var utilised = workspaces.filter(workspace => workspace.ConnectedHours > 0);
+    var idle = workspaces.filter(workspace => workspace.ConnectedHours == 0);
+
+    return {
+        datasets: [{
+            data: [utilised.length, idle.length],
+            backgroundColor: [
+                '#6fd55b', '#ffc000'
+            ]             
+        }],
+        labels: [
+            'Utilised workspaces',
+            'Idle workspaces'
+        ]       
+    };}
+
+function getComputeSplit(workspaces)
+{
+    var computeMap = new Map();
+
+    workspaces.forEach(workspace => 
+    {
+        var key = workspace.WorkspaceProperties.ComputeTypeName;
+
+        if (!computeMap.has(key))
+        {
+            computeMap.set(key, 0);
+        }
+
+        var count = computeMap.get(key) + 1;
+        computeMap.set(key, count);
+    });
+
+    return {
+        datasets: [{
+            data: [...computeMap.values()],
+            backgroundColor: [
+                '#5b8cd5', '#6fd55b', '#ffc000', '#ed6161', '#ff0000'
+            ]            
+        }],
+        labels: [...computeMap.keys() ]
+    };
+}
+
+function getMonthlyUsage(workspaces)
+{
+    var dataSets = [];
+
+    workspaces.forEach(workspace => {
+        if (workspace.Mode === 'MONTHLY')
+        {
+            getUsage(workspace, dataSets, 'rgba(0, 0, 255, 0.3)', false);
+        }
+    });  
+    return dataSets;
+}
+
+function getHourlyUsage(workspaces)
+{
+    var dataSets = [];
+
+    workspaces.forEach(workspace => {
+        if (workspace.Mode === 'HOURLY')
+        {
+            getUsage(workspace, dataSets, 'rgba(0, 255, 0, 0.3)', false);
+        }
+    });  
+    return dataSets;
+}
+
+function hourlyClickHandler(evt) 
+{
+    var firstPoint = hourlyUsageChart.getElementAtEvent(evt)[0];
+
+    if (firstPoint) 
+    {
+        var workspaceId = hourlyUsageChart.data.datasets[firstPoint._datasetIndex].label;
+        createSingleChart(workspaceId);
+        extractInstanceDetails(workspaceId);
+    }
+}
+
+function billingModeClickHandler(evt)
+{
+    var dataSet = billingModeChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+        var billingMode = billingModeChart.data.labels[dataSet._index];
+        alert('Billing mode: ' + billingMode);
+    }
+}
+
+function computeTypeClickHandler(evt)
+{
+    var dataSet = computeTypeChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+        var computeType = computeTypeChart.data.labels[dataSet._index];
+        alert('Compute type: ' + computeType);
+    }
+}
+
+function monthlyClickHandler(evt) 
+{
+    var firstPoint = monthlyUsageChart.getElementAtEvent(evt)[0];
+
+    if (firstPoint) 
+    {
+        var workspaceId = monthlyUsageChart.data.datasets[firstPoint._datasetIndex].label;
+        createSingleChart(workspaceId);
+        extractInstanceDetails(workspaceId);
+    }
+}
+
+function extractInstanceDetails(workspaceId)
+{
+    var workspace = workspaces.find(ws => ws.WorkspaceId === workspaceId);
+
+    if (workspace)
+    {
+        var html = '<p><div class="col-md-12">' +
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Workspace id:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.WorkspaceId +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>User id:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.UserName +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Mode:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.Mode +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Compute type:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.WorkspaceProperties.ComputeTypeName +
+                            '</div>' +
+                        '</div>' +  
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Connected hours:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.ConnectedHours +
+                            '</div>' +
+                        '</div>' +  
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Current cost:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">$' + 
+                                workspace.UsageCost.toFixed(2) +
+                            '</div>' +
+                        '</div>' +    
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Prediction:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.PredictedCrossOver.toFixed(2) + 
+                                ' days (confidence: ' + workspace.PredictionConfidence + ')' +
+                            '</div>' +
+                        '</div>' + 
+                        '<div class="row">' +
+                            '<div class="col-md-4">' + 
+                                '<b>Action:</b>' +
+                            '</div>' +
+                            '<div class="col-md-8">' + 
+                                workspace.PredictionAction +
+                            '</div>' +
+                        '</div>' +  
+                    '</div>';
+
+        $("#instanceDetails").html(html);                        
+    }
+}
+
+/**
+ * Creates the graph for a single workspace
+ * showing the opimal usage and progression lines
+ */
+function createSingleChart(workspaceId)
+{
+    var workspace = workspaces.find(ws => ws.WorkspaceId === workspaceId);
+
+    if (workspace)
+    {
+        var singleContext = document.getElementById('singleUsage').getContext('2d');
+
+        var graphLabels = [];
+
+        for (var i = 1; i <= workspace.DailyUsage.length; i++) {
+            graphLabels.push("" + i);
+        }
+
+        if (singleUsageChart)
+        {
+            singleUsageChart.destroy();
+            singleUsageChart = null;
+        }
+
+        singleUsageChart = new Chart(singleContext, {
+            type: 'line',
+            data: {
+                labels: graphLabels,
+                datasets: getSingleUsage(workspace)
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Amazon WorkSpace Usage - ' + workspace.WorkspaceId
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    }
+}
+
+function createCharts(workspaces)
+{
+    if (!workspaces || workspaces.length == 0)
+    {
+        return;
+    }
+
+    var hourlyContext = document.getElementById('hourlyUsage').getContext('2d');
+    var monthlyContext = document.getElementById('monthlyUsage').getContext('2d');
+    var billingSplitContext = document.getElementById('billingSplit').getContext('2d');
+    var computeSplitContext = document.getElementById('computeSplit').getContext('2d');
+    var idleSplitContext = document.getElementById('idleSplit').getContext('2d');    
+
+    var graphLabels = [];
+
+    for (var i = 1; i <= workspaces[0].DailyUsage.length; i++) {
+        graphLabels.push("" + i);
+    }
+
+    hourlyUsageChart = new Chart(hourlyContext, {
+        type: 'line',
+        data: {
+            labels: graphLabels,
+            datasets: getHourlyUsage(workspaces)
+        },
+        options: {
+            onClick: hourlyClickHandler,
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                display: false
+            },
+            title: {
+                display: true,
+                text: 'Amazon WorkSpaces - Hourly usage'
+            },
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true
+                    }
+                }]
+            }
+        }
+    });
+
+    monthlyUsageChart = new Chart(monthlyContext, {
+        type: 'line',
+        data: {
+            labels: graphLabels,
+            datasets: getMonthlyUsage(workspaces)
+        },
+        options: {
+            onClick: monthlyClickHandler,
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                display: false
+            },
+            title: {
+                display: true,
+                text: 'Amazon WorkSpaces - Monthly usage'
+            },
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true
+                    }
+                }]
+            }
+        }
+    });
+
+    billingModeChart = new Chart(billingSplitContext, {
+        type: 'doughnut',
+        data: getBillingSplit(workspaces),
+        options: {
+            onClick: billingModeClickHandler,
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                display: true,
+                position: 'right',
+            },
+            title: {
+                display: true,
+                text: ['Amazon WorkSpaces', 'Billing modes']
+            }
+        }
+    });
+
+    computeTypeChart = new Chart(computeSplitContext, {
+        type: 'doughnut',
+        data: getComputeSplit(workspaces),
+        options: {
+            onClick: computeTypeClickHandler,
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                display: true,
+                position: 'right',
+            },
+            title: {
+                display: true,
+                text: ['Amazon WorkSpaces', 'Compute types']
+            }
+        }
+    });  
+
+    var idleSplitChart = new Chart(idleSplitContext, {
+        type: 'doughnut',
+        data: getIdleSplit(workspaces),
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: {
+                display: true,
+                position: 'right',
+            },
+            title: {
+                display: true,
+                text: ['Amazon WorkSpaces', 'Idle instances']
+            }
+        }
+    });   
+}
+
+/**
+ * Compute the line of best fit
+ * See: http://bl.ocks.org/benvandyke/8459843
+ */
+function getBestFit(workspace)
+{
+    var xSeries = [];
+    var ySeries = [];
+
+    var bestFitDataSet = {
+        label: 'Predicted use',
+        borderWidth: 1,
+        lineTension: 0,
+        fill: false,
+        borderColor: 'rgba(0, 0, 255, 1)',
+        backgroundColor: 'rgba(0, 0, 255, 1)',
+        pointRadius: 0,
+        pointHitRadius: 2,
+        data: []
+    };    
+
+    var cumulativeUse = 0;
+    var hours = 0;
+
+    workspace.DailyUsage.forEach(usage =>{
+        if (hours < (workspace.BillableHours + 12))
+        {
+            cumulativeUse += usage;
+            ySeries.push(cumulativeUse);
+            hours += 24;
+        }
+    });
+
+    var day = 1;
+
+    ySeries.forEach(y => {
+        xSeries.push(day);
+        day++;
+    });
+
+    var leastSquaresCoeff = leastSquares(xSeries, ySeries);
+
+    console.log("%j", leastSquaresCoeff);
+
+    var x1 = 1;
+    var y1 = leastSquaresCoeff[0] + leastSquaresCoeff[1];
+
+    for (var i = 0; i <= workspace.DailyUsage.length; i++)
+    {
+        var y = leastSquaresCoeff[0] * (i + 1) + leastSquaresCoeff[1];
+
+        bestFitDataSet.data.push(+y.toFixed(1));
+
+        if (i >= ySeries.length - 1 && y >= workspace.OptimalMonthlyHours)
+        {
+            break;
+        }
+    }
+
+    if (leastSquaresCoeff[0] != 0)
+    {
+        var intersectionPoint = (workspace.OptimalMonthlyHours - leastSquaresCoeff[1]) / 
+        leastSquaresCoeff[0];
+
+        console.log('[INFO] Prediction: ' + 
+            intersectionPoint.toFixed(1) + ' days');
+
+        workspace.PredictedCrossOver = +intersectionPoint.toFixed(1);
+        workspace.PredictionConfidence = leastSquaresCoeff[2].toFixed(2);
+    }
+    else
+    {
+        workspace.PredictedCrossOver = 0.0;
+        workspace.PredictionConfidence = 0.00;
+    }
+
+    
+    /**
+     * Make a recommendation to the customer on conversion
+     */
+    if ((workspace.Mode === 'HOURLY') && 
+        (workspace.PredictedCrossOver > 0) &&
+        (workspace.PredictedCrossOver < workspace.DailyUsage.length))
+    {
+        workspace.PredictionAction = 'Convert to monthly immediately';
+    }
+    else if ((workspace.Mode === 'MONTHLY') && 
+        (workspace.PredictedCrossOver > workspace.DailyUsage.length))
+    {
+        workspace.PredictionAction = 'Convert to hourly at end of month';
+    }
+    else
+    {
+        workspace.PredictionAction = 'Keep';
+    }
+
+    return bestFitDataSet;
+}
+
+function leastSquares(xSeries, ySeries) 
+{
+    var reduceSumFunc = function(prev, cur) { return prev + cur; };
+    
+    var xBar = xSeries.reduce(reduceSumFunc) * 1.0 / xSeries.length;
+    var yBar = ySeries.reduce(reduceSumFunc) * 1.0 / ySeries.length;
+
+    var ssXX = xSeries.map(function(d) { return Math.pow(d - xBar, 2); })
+        .reduce(reduceSumFunc);
+    
+    var ssYY = ySeries.map(function(d) { return Math.pow(d - yBar, 2); })
+        .reduce(reduceSumFunc);
+        
+    var ssXY = xSeries.map(function(d, i) { return (d - xBar) * (ySeries[i] - yBar); })
+        .reduce(reduceSumFunc);
+        
+    var slope = ssXY / ssXX;
+    var intercept = yBar - (xBar * slope);
+    var rSquare = Math.pow(ssXY, 2) / (ssXX * ssYY);
+
+    return [slope, intercept, rSquare];
+}
+
+</script>
+
+
+</body>
+
+
+</html>
