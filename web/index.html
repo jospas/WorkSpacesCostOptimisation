@@ -74,6 +74,7 @@ function createTable(workspaces)
 {
     $('#workspacesTable').DataTable( {
         data: createTableDataset(workspaces),
+        pageLength: 100,
         columns: [
             { title: "Workspace" },
             { title: "User" },
@@ -99,13 +100,14 @@ function createTableDataset(workspaces)
     var dataSet = [];
 
     workspaces.forEach(workspace => {
+        getBestFit(workspace);
         var line = [
             workspace.WorkspaceId,
             workspace.UserName,
             workspace.WorkspaceProperties.ComputeTypeName,
             workspace.Mode,
             workspace.ConnectedHours,
-            workspace.Action
+            workspace.ComputedAction
         ];
         dataSet.push(line);
     });
@@ -650,14 +652,31 @@ function getBestFit(workspace)
         }
     });
 
+    // Use the last 10 days of data
+    var startBillableHours = Math.max(0, workspace.BillableHours - 24 * 10);
+
+    var currentBillableHours = 0;
+
+    var xSeriesClamped = [];
+    var ySeriesClamped = [];
+
     var day = 1;
 
     ySeries.forEach(y => {
-        xSeries.push(day);
+        if (currentBillableHours >= startBillableHours)
+        {
+            xSeriesClamped.push(day); 
+            ySeriesClamped.push(y);  
+        }
+
+        xSeries.push(day); 
+        ySeries.push(y);  
+
+        currentBillableHours += 24;
         day++;
     });
 
-    var leastSquaresCoeff = leastSquares(xSeries, ySeries);
+    var leastSquaresCoeff = leastSquares(xSeriesClamped, ySeriesClamped);
 
     console.log("%j", leastSquaresCoeff);
 
@@ -668,9 +687,16 @@ function getBestFit(workspace)
     {
         var y = leastSquaresCoeff[0] * (i + 1) + leastSquaresCoeff[1];
 
-        bestFitDataSet.data.push(+y.toFixed(1));
-
-        if (i >= ySeries.length - 1 && y >= workspace.OptimalMonthlyHours)
+        if (y < 0)
+        {
+            bestFitDataSet.data.push(0.0);
+        }
+        else
+        {
+            bestFitDataSet.data.push(+y.toFixed(1));    
+        }
+        
+        if (i >= ySeries.length - 1)
         {
             break;
         }
@@ -698,19 +724,23 @@ function getBestFit(workspace)
      * Make a recommendation to the customer on conversion
      */
     if ((workspace.Mode === 'HOURLY') && 
-        (workspace.PredictedCrossOver > 0) &&
-        (workspace.PredictedCrossOver < workspace.DailyUsage.length))
+        ((workspace.ConnectedHours >= workspace.OptimalMonthlyHours) ||
+        ((workspace.PredictedCrossOver > 0) &&
+        (workspace.PredictedCrossOver < workspace.DailyUsage.length))))
     {
         workspace.PredictionAction = 'Convert to monthly immediately';
+        workspace.ComputedAction = 'CONVERT NOW';
     }
     else if ((workspace.Mode === 'MONTHLY') && 
         (workspace.PredictedCrossOver > workspace.DailyUsage.length))
     {
         workspace.PredictionAction = 'Convert to hourly at end of month';
+        workspace.ComputedAction = 'CONVERT MONTH END';
     }
     else
     {
         workspace.PredictionAction = 'Keep';
+        workspace.ComputedAction = 'KEEP';
     }
 
     return bestFitDataSet;
