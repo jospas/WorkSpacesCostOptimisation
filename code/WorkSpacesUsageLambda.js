@@ -1,7 +1,9 @@
 var fs = require("fs");
 var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
+const { gzip } = require("node-gzip");
 var ws = require("./WorkSpacesUsageModule");
+var moment = require("moment");
 
 /**
  * Lambda execution point
@@ -12,11 +14,14 @@ exports.handler = async (event, context, callback) =>
 
     try
     {
+        // When we started in PST (UTC - 7H)
+        var nowPST = moment.utc().add(-7, 'hours');
+        console.log("[INFO] Starting loading workspaces at: " + nowPST.format() + " in PST");
+
         // Creates config from environment
         var config = createConfig();
 
-        // Use local Lambda credentials for DynamoDB
-        var awsdynamodb = new AWS.DynamoDB();
+        // S3 connection
         var amazons3 = new AWS.S3();
 
         // Updates AWS config
@@ -28,39 +33,41 @@ exports.handler = async (event, context, callback) =>
 
         // Load the public pricing for the configured region
         var publicPricing = await ws.getPublicPricing(config);
-        console.log("[INFO] loaded public pricing: %j", publicPricing);
+        console.log("[INFO] Loaded public pricing");
 
         // Load the customer bundles
         var customerBundles = await ws.describeWorkspaceBundles(config, null, awsworkspaces, publicPricing);
-        console.log("[INFO] Loaded %d customer bundles", customerBundles.length);
+        console.log("[INFO] Loaded: %d customer bundles", customerBundles.length);
 
         // Load the amazon bundles
         var amazonBundles = await ws.describeWorkspaceBundles(config, "AMAZON", awsworkspaces, publicPricing);
-        console.log("[INFO] Loaded %d Amazon bundles", amazonBundles.length);
+        console.log("[INFO] Loaded: %d Amazon bundles", amazonBundles.length);
 
         // Join the bundles
         var allBundles = customerBundles.concat(amazonBundles);
 
         // Loads the workspaces and metrics from the AWS account
         var workspaces = await ws.getWorkSpaces(config, awsworkspaces);
-        console.log("[INFO] Loaded %d workspaces", workspaces.length);
+        console.log("[INFO] Loaded: %d workspaces", workspaces.length);
 
-        // Load usage from CloudWatch and create the CSV data populating workspaces
-        var csvData = await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles);
-        console.log("[INFO] made csv data:\n%s", csvData);
+        // Load usage from CloudWatch
+        await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles);
 
-        // Save the usage data to DynamoDB
-        await ws.saveToDynamoDB(config, awsdynamodb, workspaces);
+        // Save compressed populated workspace json data
+        const compressedWorkspaces = await gzip(JSON.stringify(workspaces, null, "  "));
 
-        // Log total potential savings
-        console.log(sprintf("[INFO] Total potential monthly savings: $%.2f", config.TotalSavings));
-        console.log(sprintf("[INFO] Total potential yearly savings: $%.2f", config.TotalSavings * 12.0));     
+        // Save workpsaces data to S3
+        await saveToS3(amazons3, 
+            config.bucket, 
+            config.keyPrefix + "workspaces.json.gz", 
+            "application/x-gzip", 
+            compressedWorkspaces);
 
-        // Convert billing modes if requested and write out the script
-        // for manual conversion
-        var outputScript = await ws.convertBillingModes(config, awsworkspaces, workspaces);
-
-        console.log("[INFO] Update script:\n%s", outputScript); 
+        await saveToS3(amazons3, 
+            config.bucket, 
+            config.keyPrefix + "workspaces_" + nowPST.format("YYYY_MM") + ".json.gz", 
+            "application/x-gzip",
+            compressedWorkspaces);
 
         callback(null, "Finished");
     }
@@ -70,6 +77,33 @@ exports.handler = async (event, context, callback) =>
         callback(error, "Failed to execute");
     }
 };
+
+/**
+ * Writes an object to S3
+ */
+async function saveToS3(s3, bucket, key, contentType, data)
+{
+    try
+    {
+        console.log('[INFO] About to write object to: s3://%s%s', bucket, key);
+
+        var putRequest = {
+          Bucket: bucket,
+          Key: key,
+          Body: data,
+          ContentType: contentType
+        };
+
+        await s3.putObject(putRequest).promise();
+
+        console.log('[INFO] Wrote object to: s3://%s%s', bucket, key);
+    }
+    catch (error)
+    {
+        console.log('[ERROR] Failed to write to S3: ' + error);
+        throw error;
+    }
+}
 
 /**
  * Updates AWS config setting the region and optionally
@@ -100,11 +134,12 @@ function createConfig()
     config.region = process.env.REGION;
     config.directoryId = process.env.DIRECTORY_ID;
     config.windowsBYOL = process.env.WINDOWS_BYOL;
-    config.dynamoDBTable = process.env.STAGE + "-workspaces-usage";
+    config.bucket = process.env.BUCKET;
+    config.keyPrefix = process.env.KEY_PREFIX;
 
     ws.processConfig(config);
 
-    console.log("[INFO] made configuration: %j", config);
+    console.log("[INFO] Made configuration: %s", JSON.stringify(config, null, "  "));
 
     return config;
 }

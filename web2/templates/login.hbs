@@ -1,0 +1,66 @@
+<!--
+  Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  
+  Licensed under the Apache License, Version 2.0 (the "License").
+  You may not use this file except in compliance with the License.
+  A copy of the License is located at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  or in the "license" file accompanying this file. This file is distributed 
+  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+  express or implied. See the License for the specific language governing 
+  permissions and limitations under the License.
+-->
+
+<!-- API Key / Login dialog -->
+<div class="modal fade" id="loginModalDialog" tabindex="-1" role="dialog" aria-labelledby="loginModalTitle" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="loginModalTitle">Enter your API key to log in</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<label for="loginPassword">API Key:</label>
+				<input class="form-control" type="password" id="loginPassword"/>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="javascript:cancelLogin();">Cancel</button>
+				<button type="button" data-dismiss="modal" class="btn btn-primary" onclick="javascript:login($('#loginPassword'));">Log in</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	$('#loginModalDialog').on('shown.bs.modal', function () {
+		$('#loginPassword').trigger('focus');
+	});
+
+	/**
+	 * Fired when the user clicks on the log in button
+	 */
+	function login(passwordEdit)
+	{
+		window.localStorage.apiKey = passwordEdit.val();
+		document.location.href = '';
+	}
+
+	/**
+	 * Fired when the user clicks on the cancel button
+	 */
+	function cancelLogin()
+	{
+		document.location.href = '';
+	}
+
+	/**
+	 * Show the login dialog
+	 */
+	$("#loginModalDialog").modal();
+
+</script>
+

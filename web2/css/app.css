@@ -1,0 +1,20 @@
+.wrappable { 
+  overflow: hidden; 
+  max-width: 300px; 
+  word-wrap: break-word; 
+}
+
+.jumbotron {
+	padding-top: 30px;
+  padding-bottom: 10px;
+  margin-bottom: 0rem;
+}
+
+.option-selected {
+	color: #59f442;;
+}
+
+.dataTables_wrapper .dt-buttons {
+  float:right;
+  padding-left: 20px;
+}

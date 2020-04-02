@@ -2,7 +2,9 @@
 var fs = require("fs");
 var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
+const { gzip } = require("node-gzip");
 var ws = require("./WorkSpacesUsageModule");
+var moment = require("moment");
 
 /**
  * Program entry point that looks up all workspaces and
@@ -13,6 +15,10 @@ async function run ()
 {
   try
   {
+    // When we started in PST (UTC - 7H)
+    var nowPST = moment.utc().add(-7, 'hours');
+    console.log("[INFO] Starting loading workspaces at: " + nowPST.format() + " in PST");
+
     // Make the output directory
     fs.mkdirSync("./output", { recursive: true });
 
@@ -29,7 +35,6 @@ async function run ()
     AWS.config.update({region: config.region});    
 
     // Use default credentials for now
-    var awsdynamodb = new AWS.DynamoDB();
     var amazons3 = new AWS.S3();
 
     // If we are using a profile credentials provider, enable it
@@ -45,50 +50,29 @@ async function run ()
 
     // Load the public pricing for the configured region
     var publicPricing = await ws.getPublicPricing(config);
-    fs.writeFileSync("output/public_pricing.json", JSON.stringify(publicPricing, null, "  "));
-    console.log("[INFO] Wrote pricing data to: output/public_pricing.json");
 
     // Load the customer bundles
     var customerBundles = await ws.describeWorkspaceBundles(config, null, awsworkspaces, publicPricing);
-    fs.writeFileSync("output/customer_bundles.json", JSON.stringify(customerBundles, null, "  "));
-    console.log("[INFO] Wrote customer bundles to: output/customer_bundles.json");
+    console.log("[INFO] Loaded: %d customer bundles", customerBundles.length);
 
     // Load the amazon bundles
     var amazonBundles = await ws.describeWorkspaceBundles(config, "AMAZON", awsworkspaces, publicPricing);
-    fs.writeFileSync("output/amazon_bundles.json", JSON.stringify(amazonBundles, null, "  "));
-    console.log("[INFO] Wrote Amazon bundles to: output/amazon_bundles.json");
+    console.log("[INFO] Loaded: %d Amazon bundles", amazonBundles.length);
 
     // Join the bundles
     var allBundles = customerBundles.concat(amazonBundles);
 
     // Loads the workspaces and metrics from the AWS account
-    var workspaces = await ws.getWorkSpaces(config, awsworkspaces);          
+    var workspaces = await ws.getWorkSpaces(config, awsworkspaces);
+    console.log("[INFO] Loaded: %d workspaces", workspaces.length);          
 
-    // Load usage from CloudWatch and create the CSV data populating workspaces
-    var csvData = await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles);
-    fs.writeFileSync("output/usage.csv", csvData);
-    console.log("[INFO] Wrote usage data to: output/usage.csv");
+    // Load usage from CloudWatch
+    await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles);
 
-    // Save populated workspace json data
-    fs.writeFileSync("output/workspaces.json", JSON.stringify(workspaces, null, "  "));
-    console.log("[INFO] Wrote workspaces to: output/workspaces.json");         
-
-    // Log total potential savings
-    console.log(sprintf("[INFO] Total potential monthly savings: $%.2f", config.TotalSavings));
-    console.log(sprintf("[INFO] Total potential yearly savings: $%.2f", config.TotalSavings * 12.0));     
-
-    // Convert billing modes if requested and write out the script
-    // for manual conversion
-    var outputScript = await ws.convertBillingModes(config, awsworkspaces, workspaces);
-
-    fs.writeFileSync("output/updateBilling.sh", outputScript);
-    console.log("[INFO] Wrote update billing script to: output/updateBilling.sh"); 
-
-    // Save the usage data to DynamoDB
-    await ws.saveToDynamoDB(config, awsdynamodb, workspaces);
-
-    // Save as Parquet in S3
-    await ws.writeParquetFile(config, amazons3, workspaces);
+    // Save compressed populated workspace json data
+    const compressedWorkspaces = await gzip(JSON.stringify(workspaces, null, "  "));
+    fs.writeFileSync("output/workspaces.json.gz", compressedWorkspaces);
+    fs.writeFileSync("output/workspaces_" + nowPST.format("YYYY_MM") + ".json.gz", compressedWorkspaces);        
 
     // Success
     process.exit(0);

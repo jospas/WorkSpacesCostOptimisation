@@ -1,0 +1,536 @@
+<!--
+  Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  
+  Licensed under the Apache License, Version 2.0 (the "License").
+  You may not use this file except in compliance with the License.
+  A copy of the License is located at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  or in the "license" file accompanying this file. This file is distributed 
+  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+  express or implied. See the License for the specific language governing 
+  permissions and limitations under the License.
+-->
+
+<div class="jumbotron">
+
+  <p class="lead">
+    This dashboard shows the splits between monthly and hourly costs, billing modes, compute types and
+    an indication of the number and cost of idle instances. Click through any chart to see a filtered list of instances.
+  </p>
+
+  <p>
+    Select a month: 
+    <select id="dataPacksSelect" onchange="dataPackChanged();">
+    </select>
+  </p>
+
+</div>
+
+<div class="text-center" id="loading"><img src="img/loading.gif" class="img-fluid"/></div>
+
+<div class="col-md-12">
+  <div class="row">
+    <div class="col-md-4 p-1 border-bottom">
+      <h5 class="text-center">Spend</h5>
+    </div>   
+    <div class="col-md-4 p-1 border-bottom">
+      <h5 class="text-center">Idle instances</h5>
+    </div> 
+    <div class="col-md-4 p-1 border-bottom">
+      <h5 class="text-center">Compute types</h5>
+    </div>  
+  </div>
+  <div class="row">
+    <div class="col-md-4 p-1">
+      <canvas id="cost" style="height: 250px; width: 100%;"></canvas>
+    </div>   
+    <div class="col-md-4 p-1 border-left border-right">
+      <canvas id="idleCost" style="height: 250px; width: 100%;"></canvas>
+    </div>  
+    <div class="col-md-4 p-1">
+      <canvas id="computeCost" style="height: 250px; width: 100%;"></canvas>
+    </div>  
+  </div>
+  <div class="row">
+    <div class="col-md-4 p-1 border-bottom">
+      <canvas id="mode" style="height: 250px; width: 100%;"></canvas>
+    </div>  
+    <div class="col-md-4 p-1 border-left border-right border-bottom">
+      <canvas id="idleCount" style="height: 250px; width: 100%;"></canvas>
+    </div>
+    <div class="col-md-4 p-1 border-bottom">
+      <canvas id="computeCount" style="height: 250px; width: 100%;"></canvas>
+    </div>  
+  </div>  
+</div>
+
+<script>
+
+  var costChart = null;
+  var modeChart = null;
+
+  var idleCostChart = null;  
+  var idleCountChart = null;
+
+  var computeCostChart = null;
+  var computeCountChart = null;
+
+  function getHourlyCost(workspaces)
+  {
+    var cost = 0.0;
+
+    workspaces.forEach(workspace => {
+      if (workspace.Mode == "HOURLY")
+      {
+        cost += workspace.UsageCost;
+      }
+    });
+
+    return cost.toFixed(2);
+  }
+
+  function getMonthlyCost(workspaces)
+  {
+    var cost = 0.0;
+
+    workspaces.forEach(workspace => {
+      if (workspace.Mode == "MONTHLY")
+      {
+        cost += workspace.UsageCost;
+      }
+    });
+
+    return cost.toFixed(2);
+  }
+
+  function getCostData(workspaces)
+  {
+    var hourlyCost = getHourlyCost(workspaces);
+    var monthlyCost = getMonthlyCost(workspaces);
+
+    return {
+      datasets: [{
+        data: [hourlyCost, monthlyCost],
+        backgroundColor: [
+          '#6fd55b', '#5b8cd5'
+        ]       
+      }],
+      labels: [
+        'Hourly',
+        'Monthly'
+      ]     
+    };
+  }
+
+  function getModeData(workspaces)
+  {
+    var hourly = workspaces.filter(workspace => workspace.Mode === 'HOURLY');
+    var monthly = workspaces.filter(workspace => workspace.Mode === 'MONTHLY');
+
+    return {
+      datasets: [{
+        data: [hourly.length, monthly.length],
+        backgroundColor: [
+          '#6fd55b', '#5b8cd5'
+        ]           
+      }],
+      labels: [
+        'Hourly',
+        'Monthly'
+      ]       
+    };
+  }
+
+  function getIdleCountData(workspaces)
+  {
+    var hourly = workspaces.filter(workspace => workspace.Mode === 'HOURLY');
+    var monthly = workspaces.filter(workspace => workspace.Mode === 'MONTHLY');
+    
+    var idleHourly = hourly.filter(workspace => workspace.ConnectedHours == 0);
+    var idleMonthly = monthly.filter(workspace => workspace.ConnectedHours == 0);
+
+    return {
+      datasets: [{
+        data: [idleHourly.length, idleMonthly.length],
+        backgroundColor: [
+          '#6fd55b', '#5b8cd5' 
+        ],
+        tooltips: [ 'a', 'b']
+      }],
+      labels: [
+        'Hourly',
+        'Monthly'
+      ]
+    };
+  }
+
+  function getIdleCostData(workspaces)
+  {
+    var idleWorkspaces = workspaces.filter(workspace => workspace.ConnectedHours == 0);
+    var hourlyCost = getHourlyCost(idleWorkspaces);
+    var monthlyCost = getMonthlyCost(idleWorkspaces);
+
+    return {
+      datasets: [{
+        data: [hourlyCost, monthlyCost],
+        backgroundColor: [
+          '#6fd55b', '#5b8cd5' 
+        ],
+        tooltips: [ 'a', 'b']
+      }],
+      labels: [
+        'Hourly',
+        'Monthly'
+      ]
+    };
+  }  
+
+  function getComputeCountData(workspaces)
+  {
+    var computeMap = new Map();
+
+    workspaces.forEach(workspace => 
+    {
+      var key = workspace.WorkspaceProperties.ComputeTypeName;
+
+      if (key == 'PERFORMANCE')
+      {
+        key = 'PERF';
+      }
+
+      if (key == 'STANDARD')
+      {
+        key = 'STAND';
+      }      
+
+      if (key == 'GRAPHICS')
+      {
+        key = 'GRAPH';
+      }   
+
+      if (!computeMap.has(key))
+      {
+        computeMap.set(key, 0);
+      }
+
+      var count = computeMap.get(key) + 1;
+      computeMap.set(key, count);
+    });
+
+    return {
+      datasets: [{
+        data: [...computeMap.values()],
+        backgroundColor: [
+            '#6fd55b', '#5b8cd5', '#ffc000', '#ed6161', '#ff0000'
+        ]            
+      }],
+      labels: [...computeMap.keys() ]
+    };
+  }
+
+  function getComputeCostData(workspaces)
+  {
+    var computeMap = new Map();
+
+    workspaces.forEach(workspace => 
+    {
+      var key = workspace.WorkspaceProperties.ComputeTypeName;
+
+      if (key == 'PERFORMANCE')
+      {
+        key = 'PERF';
+      }
+
+      if (key == 'STANDARD')
+      {
+        key = 'STAND';
+      }      
+
+      if (key == 'GRAPHICS')
+      {
+        key = 'GRAPH';
+      }      
+
+
+      if (!computeMap.has(key))
+      {
+        computeMap.set(key, 0.00);
+      }
+
+      var cost =  workspace.UsageCost + computeMap.get(key);
+      computeMap.set(key, cost);
+    });
+
+    return {
+      datasets: [{
+        data: [...computeMap.values()],
+        backgroundColor: [
+            '#6fd55b', '#5b8cd5', '#ffc000', '#ed6161', '#ff0000'
+        ]            
+      }],
+      labels: [...computeMap.keys() ]
+    };
+  } 
+
+  function costClickHandler(evt)
+  {
+    var dataSet = costChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var billingMode = costChart.data.labels[dataSet._index];
+      window.location.href = "#allInstances?filter=5|" + billingMode;
+    }
+  }     
+
+  function modeClickHandler(evt)
+  {
+    var dataSet = modeChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var billingMode = modeChart.data.labels[dataSet._index];
+      window.location.href = "#allInstances?filter=5|" + billingMode;
+    }
+  }  
+
+  function idleCostClickHandler(evt)
+  {
+    var dataSet = idleCostChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var billingMode = idleCostChart.data.labels[dataSet._index];
+      window.location.href = "#idleInstances?filter=5|" + billingMode;
+    }
+  } 
+
+  function idleCountClickHandler(evt)
+  {
+    var dataSet = idleCountChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var billingMode = idleCountChart.data.labels[dataSet._index];
+      window.location.href = "#idleInstances?filter=5|" + billingMode;
+    }
+  }  
+
+  function computeCostClickHandler(evt)
+  {
+    var dataSet = computeCostChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var computeType = computeCostChart.data.labels[dataSet._index];
+      window.location.href = "#allInstances?filter=4|" + computeType;
+    }
+  }  
+
+  function computeCountClickHandler(evt)
+  {
+    var dataSet = computeCountChart.getElementAtEvent(evt)[0];
+
+    if (dataSet) 
+    {
+      var computeType = computeCountChart.data.labels[dataSet._index];
+      window.location.href = "#allInstances?filter=4|" + computeType;
+    }
+  } 
+
+  function createCharts(workspaces)
+  {
+    if (!workspaces || workspaces.length == 0)
+    {
+        return;
+    }
+
+    var costContext = document.getElementById('cost').getContext('2d');
+    var modeContext = document.getElementById('mode').getContext('2d');
+    var computeCostContext = document.getElementById('computeCost').getContext('2d');
+    var computeCountContext = document.getElementById('computeCount').getContext('2d');
+    var idleCostContext = document.getElementById('idleCost').getContext('2d');   
+    var idleCountContext = document.getElementById('idleCount').getContext('2d');   
+
+    var graphLabels = [];
+
+    for (var i = 1; i <= workspaces[0].DailyUsage.length; i++) 
+    {
+      graphLabels.push("" + i);
+    }
+
+    costChart = new Chart(costContext, {
+      type: 'doughnut',
+      data: getCostData(workspaces),
+      options: {
+        onClick: costClickHandler,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Spend per billing mode (USD)']
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              return tooltipItem.label + ": " + Number.parseFloat(data.datasets[0].data[tooltipItem.index]).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+              });
+            }
+          }
+        }
+      }
+    });    
+
+    modeChart = new Chart(modeContext, {
+      type: 'doughnut',
+      data: getModeData(workspaces),
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: modeClickHandler,
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Billing mode counts (instances))']
+        }
+      }
+    });
+
+    computeCostChart = new Chart(computeCostContext, {
+      type: 'doughnut',
+      data: getComputeCostData(workspaces),
+      options: {
+        onClick: computeCostClickHandler,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+          display: true,
+          position: 'bottom',
+          fullWidth: false,
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Spend per compute type (USD)']
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              return Number.parseFloat(data.datasets[0].data[tooltipItem.index]).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+              });
+            }
+          }
+        }        
+      }
+    });  
+
+    computeCountChart = new Chart(computeCountContext, {
+      type: 'doughnut',
+      data: getComputeCountData(workspaces),
+      options: {
+        onClick: computeCountClickHandler,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+          display: true,
+          position: 'bottom',
+          fullWidth: false,
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Compute type counts (instances)']
+        }
+      }
+    });  
+
+    idleCostChart = new Chart(idleCostContext, {
+      type: 'doughnut',
+      data: getIdleCostData(workspaces),
+      options: {
+        onClick: idleCostClickHandler,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Idle spend per billing type (USD)']
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              return Number.parseFloat(data.datasets[0].data[tooltipItem.index]).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+              });
+            }
+          }
+        }
+      }
+    });   
+
+    idleCountChart = new Chart(idleCountContext, {
+      type: 'doughnut',
+      data: getIdleCountData(workspaces),
+      options: {
+        onClick: idleCountClickHandler,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 12
+          }
+        },
+        title: {
+          display: true,
+          text: ['Idle count per billing type (instances)']
+        }
+      }
+    });
+  } 
+
+  loadAvailableData().then(() => 
+  {
+    var selectedDataPack = getSelectedDataPack();
+    loadWorkspaces(selectedDataPack.url).then((loadedWorkspaces) => 
+    {
+      workspaces = loadedWorkspaces;
+      createCharts(workspaces);
+      renderDataPacksSelect();
+      $('#loading').hide();
+    });
+  }); 
+
+
+</script>

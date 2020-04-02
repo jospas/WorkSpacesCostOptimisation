@@ -2,7 +2,6 @@ var fs = require("fs");
 var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
 var axios = require("axios");
-var parquet = require("parquetjs");
 var moment = require("moment");
 
 /**
@@ -10,7 +9,6 @@ var moment = require("moment");
  */
 exports.processConfig = function(config)
 {
-  config.TotalSavings = 0.0;
   config.lastDayOfMonth = isLastDayOfMonth();
   console.log("[INFO] Last day of month: " + config.lastDayOfMonth);
 }
@@ -63,7 +61,15 @@ exports.convertBillingModes = async function(config, awsworkspaces, workspaces)
 exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces, publicPricing)
 {
 
-  console.log("[INFO] Loading workspaces bundles for owner: " + owner);
+  if (owner)
+  {
+    console.log("[INFO] Loading workspaces bundles for owner: " + owner);  
+  }
+  else
+  {
+    console.log("[INFO] Loading customer workspaces bundles");
+  }
+  
 
   var params = 
   {
@@ -160,14 +166,6 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
 {
   console.log("[INFO] Loading workspaces usage...");
 
-  var usageData = "BundleId,Description,"+
-    "HourlyBasePrice,HourlyPrice,MonthlyPrice,OptimalMonthlyHours," +
-    "DirectoryId,WorkSpaceId,UserName,ComputerName," +
-    "State,ComputeType,CurrentMode," +
-    "ConnectedHours,UsageCost,Utilisation," +
-    "MaxUsage,MedianUsage,MeanUsage," +
-    "Action,Savings\n";
-
   try
   {
     for (var i = 0; i < workspaces.length; i++)
@@ -175,7 +173,7 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
       var connectedHours = await getWorkSpaceUsage(config, awscloudwatch, workspaces[i]);
       workspaces[i].ConnectedHours = connectedHours;
 
-      usageData += analyseResults(config, workspaces[i], bundles);
+      analyseResults(config, workspaces[i], bundles);
       printProgress(config, sprintf("[INFO] Loading connected user metrics: %.0f%%", 
         i * 100.0 / workspaces.length));
     }
@@ -186,8 +184,6 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
   {
     throw error;
   }
-
-  return usageData;
 }
 
 /**
@@ -408,99 +404,6 @@ function populateBundlePricing(config, publicPricing, bundle)
   bundle.optimalMonthlyHours = crossOverHours;
 }
 
-
-/**
- * Creates a line in a script to update billing mode
- */
-function createUpdateScriptLine(config, workspace)
-{
-  if (workspace.Action !== "CONVERT")
-  {
-    return "";
-  }
-
-  var profileOption = "";
-
-  if (config.profile)
-  {
-    profileOption = "--profile " + config.profile;
-  }
-
-  var newBillingMode = "";
-
-  if (workspace.Mode === "MONTHLY")
-  {
-    newBillingMode = "RunningMode=AUTO_STOP";
-  }
-  else if (workspace.Mode === "HOURLY")
-  {
-    newBillingMode = "RunningMode=ALWAYS_ON";
-  }
-
-  return sprintf('echo "[INFO] Convert instance: [%s] user: [%s] current mode: [%s]"\n' +
-    'echo "[INFO] Connected hours: %d"\n' +
-    'echo "[INFO] Potential savings: %.2f USD"\n' +
-    'echo "[INFO] Last day of month: %s"\n' +
-    "aws workspaces modify-workspace-properties %s " +
-    "--workspace-id %s --region %s " +
-    "--workspace-properties %s\n\n",
-      workspace.WorkspaceId,
-      workspace.UserName, 
-      workspace.Mode,
-      workspace.ConnectedHours,
-      workspace.Savings,
-      config.lastDayOfMonth,
-      profileOption,
-      workspace.WorkspaceId,
-      config.region,
-      newBillingMode);
-}
-
-/**
- * Converts billing mode for a single workspace if configured
- */
-async function convertBillingMode(config, awsworkspaces, workspace)
-{
-  var maxRetries = 10;
-  var retry = 0;
-  var lastError = null;
-
-  while (retry < maxRetries)
-  {
-    try
-    {
-      var params = 
-      {
-        WorkspaceId: workspace.WorkspaceId,
-        WorkspaceProperties: { }
-      };
-
-      if (workspace.Mode === "MONTHLY")
-      {
-        params.WorkspaceProperties.RunningMode = "AUTO_STOP";
-      }
-      else if (workspace.Mode === "HOURLY")
-      {
-        params.WorkspaceProperties.RunningMode = "ALWAYS_ON";
-      }
-      else
-      {
-        throw new Error("Unhandled workspaces billing mode: " + workspace.Mode);
-      }
-
-      await awsworkspaces.modifyWorkspaceProperties(params).promise();
-      return;
-    }
-    catch (error)
-    {
-      lastError = error;
-      await sleep(getSleepTime(retry));     
-      retry++;
-    }
-  }
-  throw new Error("Failed to convert a workspace, maximum retry count exceeded: " + lastError.message);
-}
-
 /**
  * Locate a configured bundle by bundleId
  */
@@ -547,7 +450,6 @@ function analyseResults(config, workspace, bundles)
   var bundle = getBundle(workspace, bundles);
 
   workspace.Mode = "";
-  workspace.Action = "KEEP";
   workspace.Savings = 0.0;
 
   workspace.BundleDescription = bundle.Description;
@@ -574,72 +476,22 @@ function analyseResults(config, workspace, bundles)
 
   var hourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
 
-  /**
-   * Convert hourly billing to monthly if the current use plus the
-   * monthly pro-rata amount exceeds the monthly cost
-   */
   if (runningMode === "AUTO_STOP")
   {
-    workspace.UsageCost = hourlyCost;
     workspace.Mode = "HOURLY";
-
-    if (workspace.ConnectedHours >= bundle.optimalMonthlyHours)
-    {
-      workspace.Action = "CONVERT";
-      workspace.Savings = hourlyCost - bundle.monthlyPrice;
-    }
+    workspace.UsageCost = hourlyCost;
   }
-  /**
-   * Convert monthly billing back to hourly only at the end
-   * of the month and only if the utilisation is low
-   */
   else if (runningMode === "ALWAYS_ON")
   {
     workspace.UsageCost = bundle.monthlyPrice;
     workspace.Mode = "MONTHLY";
-    if (config.lastDayOfMonth && (workspace.ConnectedHours < bundle.optimalMonthlyHours))
-    {
-      workspace.Action = "CONVERT";
-      workspace.Savings = bundle.monthlyPrice - hourlyCost;
-    }
   }
 
-  var line = sprintf("%s,%s,%.2f,%.2f,%.2f,%d," +
-      "%s,%s,%s,%s,%s,%s,%s," +
-      "%d,%.2f,%.2f," +
-      "%d,%d,%.1f," +
-      "%s,%.2f\n",
-
-    bundle.BundleId, 
-    bundle.Description, 
-    bundle.hourlyBasePrice,
-    bundle.hourlyPrice,
-    bundle.monthlyPrice,
-    bundle.optimalMonthlyHours,
-
-    workspace.DirectoryId,
-    workspace.WorkspaceId,
-    workspace.UserName,
-    workspace.ComputerName,
-    workspace.State,
-    workspace.WorkspaceProperties.ComputeTypeName,
-    workspace.Mode,
-
-    workspace.ConnectedHours,
-    workspace.UsageCost,
-    workspace.Utilisation,
-
-    workspace.MaxUsage,
-    workspace.MedianUsage,
-    workspace.MeanUsage,
-
-    workspace.Action,
-    workspace.Savings
-  );
-
-  config.TotalSavings += workspace.Savings;
-
-  return line;
+  /**
+   * Make a judgement on whether an instance should be converted
+   * or not
+   */
+  computeBestFitAndAction(workspace);
 }
 
 /**
@@ -874,6 +726,206 @@ exports.sleepExport = function sleepExport(millis)
 }
 
 /**
+ * Compute the line of best fit and recommended actions
+ * See: http://bl.ocks.org/benvandyke/8459843
+ */
+function computeBestFitAndAction(workspace)
+{
+    var xSeries = [];
+    var ySeries = [];
+
+    var cumulativeUse = 0;
+    var hours = 0;
+
+    if (workspace.BillableHours < 72)
+    {
+      workspace.HasPrediction = false;
+      workspace.Action = 'KEEP';
+      workspace.ActionReason = 'Insufficient data to make prediction';
+      workspace.ActionConfidence = 0.0;
+      return;
+    }
+
+    workspace.DailyUsage.forEach(usage =>{
+      if (hours < (workspace.BillableHours + 12))
+      {
+        cumulativeUse += usage;
+        ySeries.push(cumulativeUse);
+        hours += 24;
+      }
+    });
+
+    // Use at most the last 7 days of data
+    var startBillableHours = Math.max(0, workspace.BillableHours - 24 * 7);
+    var currentBillableHours = 0;
+    var xSeriesClamped = [];
+    var ySeriesClamped = [];
+
+    var day = 1;
+
+    ySeries.forEach(y => {
+        if (currentBillableHours >= startBillableHours)
+        {
+            xSeriesClamped.push(day); 
+            ySeriesClamped.push(y);  
+        }
+
+        xSeries.push(day); 
+        ySeries.push(y);  
+        currentBillableHours += 24;
+        day++;
+    });
+
+    var leastSquaresCoeff = leastSquares(xSeriesClamped, ySeriesClamped);
+
+    var x1 = 1;
+    var y1 = leastSquaresCoeff[0] + leastSquaresCoeff[1];
+
+    if (leastSquaresCoeff[0] != 0)
+    {
+        var intersectionPoint = (workspace.OptimalMonthlyHours - leastSquaresCoeff[1]) / 
+        leastSquaresCoeff[0];
+        workspace.HasPrediction = true;
+        workspace.LeastSquaresData = leastSquaresCoeff;
+        workspace.PredictedCrossOver = +intersectionPoint.toFixed(1);
+        workspace.PredictionConfidence = leastSquaresCoeff[2].toFixed(2);
+    }
+    else
+    {
+        workspace.HasPrediction = false;
+    }
+
+    /**
+     * Hourly actions
+     */
+    if (workspace.Mode === 'HOURLY')
+    {
+      if (workspace.ConnectedHours >= workspace.OptimalMonthlyHours)
+      {
+        workspace.Action = 'CONVERT';
+        workspace.ActionReason = 'Hourly usage exceeds monthly billing threshold';
+        workspace.ActionConfidence = 1.0;
+      }
+      else if (workspace.HasPrediction)
+      {
+        if (workspace.PredictionConfidence >= 0.7)
+        {
+          if (workspace.PredictedCrossOver < workspace.DailyUsage.length - 2)
+          {
+            workspace.Action = 'CONVERT';
+            workspace.ActionReason = 'Predicted usage exceeds monthly billing threshold';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+          }
+          else
+          {
+            workspace.Action = 'KEEP';
+            workspace.ActionReason = 'Predicted usage is below monthly billing threshold';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+          }
+        }
+        else
+        {
+          workspace.Action = 'KEEP';
+          workspace.ActionReason = 'Prediction has low confidence';
+          workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
+      }
+      else if (workspace.ConnectedHours == 0)
+      {
+        workspace.Action = 'MONITOR';
+        workspace.ActionReason = 'Consider termination as instance has zero use';
+        workspace.ActionConfidence = 0.5;
+      }
+      else
+      {
+        workspace.Action = 'KEEP';
+        workspace.ActionReason = 'Prediction not available due to no recent usage';
+        workspace.ActionConfidence = 0.0;
+      }
+    }
+    /**
+     * Monthly actions
+     */
+    else if (workspace.Mode === 'MONTHLY')
+    {
+      if (workspace.ConnectedHours >= workspace.OptimalMonthlyHours)
+      {
+        workspace.Action = 'KEEP';
+        workspace.ActionReason = 'Monthly usage exceeds monthly billing threshold';
+        workspace.ActionConfidence = 1.0;
+      }
+      else if (workspace.ConnectedHours == 0)
+      {
+        workspace.Action = 'MONITOR';
+        workspace.ActionReason = 'Consider conversion to hourly or termination at end of month';
+        workspace.ActionConfidence = workspace.PredictionConfidence;
+      }
+      else if (workspace.HasPrediction)
+      {
+        if (workspace.PredictionConfidence >= 0.7)
+        {
+          if (workspace.PredictedCrossOver < workspace.DailyUsage.length - 2)
+          {
+            workspace.Action = 'KEEP';
+            workspace.ActionReason = 'Predicted usage exceeds monthly billing threshold';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+          }
+          else
+          {
+            workspace.Action = 'MONITOR';
+            workspace.ActionReason = 'If usage remains low, consider conversion to hourly';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+          }
+        }
+        else
+        {
+          workspace.Action = 'KEEP';
+          workspace.ActionReason = 'Prediction has low confidence';
+          workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
+      }
+      else if (workspace.ConnectedHours == 0)
+      {
+        workspace.Action = 'MONITOR';
+        workspace.ActionReason = 'Consider conversion to hourly or termination';
+        workspace.ActionConfidence = 0.5;
+      }
+      else
+      {
+        workspace.Action = 'MONITOR';
+        workspace.ActionReason = 'Consider conversation to hourly next month';
+        workspace.ActionConfidence = 0.0;
+      }
+    }
+}
+
+/**
+ * Computes least squares on an x and y data series
+ */
+function leastSquares(xSeries, ySeries) 
+{
+  var reduceSumFunc = function(prev, cur) { return prev + cur; };
+  
+  var xBar = xSeries.reduce(reduceSumFunc) * 1.0 / xSeries.length;
+  var yBar = ySeries.reduce(reduceSumFunc) * 1.0 / ySeries.length;
+
+  var ssXX = xSeries.map(function(d) { return Math.pow(d - xBar, 2); })
+      .reduce(reduceSumFunc);
+  
+  var ssYY = ySeries.map(function(d) { return Math.pow(d - yBar, 2); })
+      .reduce(reduceSumFunc);
+      
+  var ssXY = xSeries.map(function(d, i) { return (d - xBar) * (ySeries[i] - yBar); })
+      .reduce(reduceSumFunc);
+      
+  var slope = ssXY / ssXX;
+  var intercept = yBar - (xBar * slope);
+  var rSquare = Math.pow(ssXY, 2) / (ssXX * ssYY);
+
+  return [slope, intercept, rSquare];
+}
+
+/**
  * Fetches an exponential backoff maxing at 2500
  */
 function getSleepTime(retry)
@@ -911,168 +963,3 @@ function printProgressDivider(config)
     console.log("");
   }
 }
-
-/**
- * Saves records to DynamoDB
- */
-exports.saveToDynamoDB = async function saveToDynamoDB(config, dynamoDB, workspaces)
-{
-  try
-  {
-    var now = moment.utc();
-    var period = now.format("YYYY-MM");
-
-    console.log("[INFO] Writing usage data to DynamoDB table: " + config.dynamoDBTable);
-
-    for (var i = 0; i < workspaces.length; i++)
-    {
-      var workspace = workspaces[i];
-
-      var params = {
-        TableName: config.dynamoDBTable,
-        Item: 
-        {
-            "workspaceId" : {"S": workspace.WorkspaceId},
-            "userId" : {"S": workspace.UserName},
-            "period" : {"S": period},
-            "usageData" : {"S": JSON.stringify(workspace)},
-            "meanUsage" : {"N": "" + workspace.MeanUsage},
-            "medianUsage" : {"N": "" + workspace.MedianUsage},
-            "maxUsage" : {"N": "" + workspace.MaxUsage},
-            "runningMode" : {"S": workspace.Mode},
-            "billableHours" : {"N": "" + workspace.BillableHours},
-            "connectedHours" : {"N": "" + workspace.ConnectedHours},            
-            "utilisation": {"N": "" + workspace.Utilisation},
-            "computeType": {"S": workspace.WorkspaceProperties.ComputeTypeName},
-            "usageCost": {"S": "" + workspace.UsageCost},
-            "savings": {"S": "" + workspace.Savings},
-            "action": {"S": "" + workspace.Action},
-            "hourlyBasePrice": {"N": "" + workspace.HourlyBasePrice},
-            "hourlyPrice": {"N": "" + workspace.HourlyPrice},
-            "monthlyPrice": {"N": "" + workspace.MonthlyPrice},
-            "optimalMonthlyHours": {"N": "" + workspace.OptimalMonthlyHours},
-            "processedDate":  {"S": now.toISOString() }
-        }
-      };
-
-      var putResponse = await dynamoDB.putItem(params).promise();
-
-      printProgress(config, sprintf("[INFO] Writing usage to DynamoDB: %.0f%%", i * 100.0 / workspaces.length));
-    }
-
-    printProgressDivider();
-
-    console.log("[INFO] Writing usage data to DynamoDB is complete");
-  }
-  catch (error)
-  {
-    console.log("[ERROR] Failed to write to DynamoDB", error);
-    throw error;
-  }
-}
-
-/**
- * Creates a Parquet file and writes this to S3
- */
-exports.writeParquetFile = async function writeParquetFile(config, s3, workspaces)
-{
-  if (!config.s3Bucket || !config.s3Prefix)
-  {
-    console.log("[INFO] writing to S3 is disabled");
-    return;
-  }
-
-  try
-  {
-    var opts = { compression: "SNAPPY" };
-
-    var schema = new parquet.ParquetSchema(
-    {
-      workspaceId : {type: "UTF8", compression: opts.compression},
-      userId : {type: "UTF8", compression: opts.compression},
-      bundleId: {type: "UTF8", compression: opts.compression},
-      bundleDescription: {type: "UTF8", compression: opts.compression},
-      hourlyBasePrice: {type: "FLOAT", compression: opts.compression},
-      hourlyPrice: {type: "FLOAT", compression: opts.compression},
-      monthlyPrice: {type: "FLOAT", compression: opts.compression},
-      optimalMonthlyHours: {type: "FLOAT", compression: opts.compression},
-      runningMode: {type: "UTF8", compression: opts.compression},
-      processedDate: {type: "UTF8", compression: opts.compression},
-      action: {type: "UTF8", compression: opts.compression},
-      computeType: {type: "UTF8", compression: opts.compression},
-      billableHours: {type: "INT32", compression: opts.compression},
-      connectedHours: {type: "INT32", compression: opts.compression},
-      utilisation: {type: "FLOAT", compression: opts.compression},
-      meanUsage: {type: "FLOAT", compression: opts.compression},
-      medianUsage: {type: "FLOAT", compression: opts.compression},
-      maxUsage: {type: "FLOAT", compression: opts.compression},
-      usageCost: {type: "FLOAT", compression: opts.compression},
-      savings: {type: "FLOAT", compression: opts.compression}
-    });
-
-    var now = moment.utc();
-    var nowString = now.toISOString();
-    var fileName = sprintf("workspace-usage-%d-%02d.snappy.parquet", 
-      now.year(), now.month());
-    var localFile = "output/usage.parquet";
-    fs.mkdirSync("./output", { recursive: true });
-    var s3Path = sprintf("%sdirectory=%s/when=%d-%02d/%s", 
-      config.s3Prefix, config.directoryId, now.year(), now.month(), fileName);
-
-    var parquetWriter = await parquet.ParquetWriter.openFile(schema, localFile, opts);
-
-    for (var i = 0; i < workspaces.length; i++)
-    {
-      var workspace = workspaces[i];
-
-      await parquetWriter.appendRow(
-      {
-        workspaceId : workspace.WorkspaceId,
-        userId : workspace.UserName,
-        bundleId: workspace.BundleId,
-        bundleDescription: workspace.BundleDescription,
-        hourlyBasePrice: workspace.HourlyBasePrice,
-        hourlyPrice: workspace.HourlyPrice,
-        monthlyPrice: workspace.MonthlyPrice,
-        optimalMonthlyHours: workspace.OptimalMonthlyHours,
-        runningMode: workspace.Mode,
-        processedDate: nowString,
-        action: workspace.Action,
-        computeType: workspace.WorkspaceProperties.ComputeTypeName,
-        billableHours: workspace.BillableHours,
-        connectedHours: workspace.ConnectedHours,
-        utilisation: workspace.Utilisation,
-        meanUsage: workspace.MeanUsage,
-        medianUsage: workspace.MedianUsage,
-        maxUsage: workspace.MaxUsage,
-        usageCost: workspace.UsageCost,
-        savings: workspace.Savings
-      });
-    }
-
-    await parquetWriter.close();
-
-    console.log("[INFO] Writing parquet file to: s3://%s/%s", config.s3Bucket, s3Path);
-
-    const fileContent = fs.readFileSync(localFile);
-
-    var putRequest = {
-      Bucket: config.s3Bucket,
-      Key: s3Path,
-      Body: fileContent,
-      ContentType: "application/parquet"
-    };
-
-    var response = await s3.putObject(putRequest).promise();
-
-    console.log("[INFO] S3 upload is complete");
-
-    // TODO upsert partition into Glue    
-  }
-  catch (error)
-  {
-    console.log("[ERROR] Failed to create Parquet file", error);
-    throw error;
-  }
-}
-

@@ -1,0 +1,116 @@
+<!--
+  Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  
+  Licensed under the Apache License, Version 2.0 (the "License").
+  You may not use this file except in compliance with the License.
+  A copy of the License is located at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  or in the "license" file accompanying this file. This file is distributed 
+  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+  express or implied. See the License for the specific language governing 
+  permissions and limitations under the License.
+-->
+
+<div class="jumbotron">
+
+  <p class="lead">
+    The following instances have recommended billing mode changes. You can view a cumulative usage graph for each instance by clicking <img src="img/eye.svg" width="16" height="16"> in the table. Select rows and use the <em>Generate Script</em> button to build a script that can be used to convert instances.
+  </p>
+
+  <p>
+    Select a month: 
+    <select id="dataPacksSelect" onchange="dataPackChanged();">
+    </select>
+  </p>
+
+</div>
+
+<div class="text-center" id="loading"><img src="img/loading.gif" class="img-fluid"/></div>
+
+<div class="col-md-12 p-4">
+  <div class="row">
+    <div class="col-md-12">
+      <br>
+      <table id="workspacesTable" class="display" width="100%"></table>
+    </div>
+  </div>
+<div>
+
+<!-- Workspace details dialog -->
+<div class="modal fade" id="workspaceDetailsDialog" tabindex="-1" role="dialog" aria-labelledby="workspaceDetailsTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="workspaceDetailsTitle">Workspace instance: </h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-1"><b>Action:</b></div>
+          <div class="col-md-2" id="workspaceAction"></div>
+          <div class="col-md-1"><b>Reason:</b></div>
+          <div class="col-md-7" id="workspaceActionReason"></div>
+        </div>
+        <hr>
+        <canvas id="singleUsage" style="height: 500px; width: 100%;"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Conversion script text box -->
+<div class="modal fade" id="conversionScriptDialog" tabindex="-1" role="dialog" aria-labelledby="conversionScriptTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="conversionScriptTitle">Generate convert billing mode script</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-header">
+        <div class="col-md-12">
+          <div class="row">
+            <div class="col-md-2">
+            </div>   
+            <div class="col-md-8">
+              <input type="text" class="form-control" id="awsProfileName" placeholder="Optional AWS profile name">
+            </div> 
+          </div>      
+          <div class="col-md-2">
+          </div>   
+        </div>
+      </div>
+      <div class="modal-body">
+          <textarea rows="8" width="100%" class="form-control" style="min-width: 100%" id="scriptTextArea"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="copyScript()">Copy</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>      
+    </div>
+  </div>
+</div>
+
+<script>
+
+  loadAvailableData().then(() => 
+  {
+    var selectedDataPack = getSelectedDataPack();
+    loadWorkspaces(selectedDataPack.url).then((loadedWorkspaces) => 
+    {
+      workspaces = loadedWorkspaces;
+      var filter = getUrlVars()["filter"];
+      var recommendationWorkspaces = 
+        workspaces.filter(workspace => (workspace.Action != 'KEEP' && workspace.Action != 'MONITOR'));
+      createGraphTable(recommendationWorkspaces, filter);
+      renderDataPacksSelect();
+      $('#loading').hide();
+    });
+  }); 
+
+</script>

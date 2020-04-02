@@ -1,41 +1,29 @@
 service: aws-workspaces-optimisation
 
-plugins:
-  - serverless-parameters
-
 provider:
   name: aws
   region: ${opt:region, 'ap-southeast-2'}
-  runtime: nodejs10.x
-  stage: dev
-  profile: aws-josh
+  endpointType: REGIONAL
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  profile: ${opt:profile, 'aws-josh'}
+  apiKeys:
+    - name: ${self:provider.stage}-${self:service}
+      description: 'API Key for Workpsaces cost optimisation'
 
 package:
   individually: true 
 
-custom:
-  stage: '${opt:stage, self:provider.stage}'
-
-  parameters:
-    DirectoryId:
-      Type: String
-      Default: ${opt:DirectoryId, 'Unknown'}
-      Description: 'The id of the directory to optimise'
-    WindowsBYOL:
-      Type: String
-      Default: ${opt:WindowsBYOL, 'false'}
-      Description: 'Enable to use Windows BYOL pricing'
-
 functions:
   optimiseworkspaces:
     handler: code/WorkSpacesUsageLambda.handler
-    name: '${self:custom.stage}-${self:service}-function'
+    name: '${self:provider.stage}-${self:service}-function'
     description: 'Checks daily to optimise workspaces usage'
     role: !GetAtt LambdaRole.Arn
     events:
       - schedule: 
-          name: '${self:custom.stage}-${self:service}-schedule'
-          rate: 'cron(0 7 * * ? *)'
+          name: '${self:provider.stage}-${self:service}-schedule'
+          rate: 'rate(1 hour)'
     package:
       exclude:
         - '**'
@@ -43,15 +31,42 @@ functions:
         - '!code/WorkSpacesUsageLambda.js'
         - '!code/WorkSpacesUsageModule.js'
       excludeDevDependencies: true
-    memorySize: 512
+    memorySize: 2048
     timeout: 900
     environment:
       REGION: !Ref 'AWS::Region'
-      DIRECTORY_ID: !Ref 'DirectoryId'
-      WINDOWS_BYOL: !Ref 'WindowsBYOL'
-      STAGE: '${self:custom.stage}'
+      DIRECTORY_ID: 'updateme'
+      WINDOWS_BYOL: 'false'
+      BUCKET: !Ref S3Bucket
+      KEY_PREFIX: 'apps/workspaces/usage/'
+      STAGE: '${self:provider.stage}'
       TEMP_ACCESS_KEY: ''
       TEMP_SECRET_KEY: ''
+
+  getavailabledata:
+    handler: code/GetAvailableDataLambda.handler
+    name: '${self:provider.stage}-${self:service}-getavailabledata'
+    description: 'Fetches the available data in S3'
+    role: !GetAtt LambdaRole.Arn
+    events:
+      - http:
+          path: workspaces/data
+          method: get
+          private: true   
+          cors: true 
+    package:
+      exclude:
+        - '**'
+        - '!node_modules/**'
+        - '!code/GetAvailableDataLambda.js'
+      excludeDevDependencies: true
+    memorySize: 512
+    timeout: 29
+    environment:
+      REGION: !Ref 'AWS::Region'
+      BUCKET: !Ref S3Bucket
+      KEY_PREFIX: 'apps/workspaces/usage/'
+      STAGE: '${self:provider.stage}'
 
 resources:
   Description: 'Cost optimisation tooling for Amazon WorkSpaces'
@@ -59,7 +74,7 @@ resources:
     LambdaRole:
       Type: 'AWS::IAM::Role'
       Properties:
-        RoleName: !Join [ '', [ !Ref 'AWS::StackName', '-', !Ref 'AWS::Region', '-role' ]]
+        RoleName: !Join [ '-', [ '${self:provider.stage}', '${self:service}', !Ref 'AWS::Region', 'role' ]]
         AssumeRolePolicyDocument: 
           Version: '2012-10-17'
           Statement: 
@@ -75,7 +90,7 @@ resources:
     LambdaPolicy:
       Type: 'AWS::IAM::ManagedPolicy'
       Properties:
-        ManagedPolicyName: !Join [ '', [ !Ref 'AWS::StackName', '-', !Ref 'AWS::Region', '-policy' ]]
+        ManagedPolicyName: !Join [ '-', [ '${self:provider.stage}', '${self:service}', !Ref 'AWS::Region', 'policy' ]]
         Description: 'Managed policy for lambda execution'
         PolicyDocument: 
           Version: '2012-10-17'
@@ -96,42 +111,26 @@ resources:
                 - '*'
             - Effect: Allow
               Action:
-                - dynamodb:Scan
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:Query
-                - dynamodb:UpdateItem
-                - dynamodb:DeleteItem
+                - s3:*
               Resource: 
-                - !GetAtt WorkSpacesUsageDynamoDBTable.Arn
-                - !Join [ '', [ !GetAtt WorkSpacesUsageDynamoDBTable.Arn, '/index/*' ] ]
+                - !GetAtt S3Bucket.Arn
+                - !Join [ '', [ !GetAtt S3Bucket.Arn, '/*' ] ]
 
-    WorkSpacesUsageDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
-      Properties:
-        TableName: '${self:custom.stage}-workspaces-usage'
-        AttributeDefinitions:
-          - AttributeName: workspaceId
-            AttributeType: S
-          - AttributeName: period
-            AttributeType: S             
-        KeySchema:
-          - AttributeName: workspaceId
-            KeyType: HASH
-          - AttributeName: period
-            KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
-        GlobalSecondaryIndexes:
-          - IndexName: periodIndex
-            KeySchema:
-            - AttributeName: period
-              KeyType: HASH
-            - AttributeName: workspaceId
-              KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-
-    S3BucketLake:
+    S3Bucket:
       Type: 'AWS::S3::Bucket'
       Properties:
-        BucketName: !Join [ '', [ '${self:custom.stage}-workspaces-', !Ref AWS::Region, '-', !Ref AWS::AccountId ]]
+        BucketName: !Join [ '-', [ '${self:provider.stage}', '${self:service}', !Ref AWS::Region, !Ref AWS::AccountId ]]
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
