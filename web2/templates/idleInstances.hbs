@@ -21,8 +21,8 @@
 
   <p>
     Select a month: 
-    <select id="dataPacksSelect" onchange="dataPackChanged();">
-    </select>
+    <select id="dataPacksSelect" onchange="dataPackChanged();"><option>Loading ...</option></select>
+    <input type="checkbox" id="useLatest" onchange="useLatestChanged();"> Automatically show me the current month
   </p>
 
 </div>

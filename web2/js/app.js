@@ -190,6 +190,19 @@ function getSelectedDataPack()
 	return filtered[0];
 }
 
+function useLatestChanged()
+{
+	var useLatest = $('#useLatest').is(":checked");
+	window.localStorage.selectLatest = useLatest;
+
+	$('#dataPacksSelect').prop("disabled", useLatest);
+
+	if (useLatest)
+	{
+		selectDataPack(availableData[0].yearMonth);
+	}
+}
+
 function renderDataPacksSelect()
 {
 	var select = $('#dataPacksSelect');
@@ -200,16 +213,9 @@ function renderDataPacksSelect()
 	{
 		var item = availableData[i];
 
-		var latest = '';
-
-		if (item.latest == true)
-		{
-			latest = ' (current)';
-		}
-
 		if (item.yearMonth === selectedDataPack.yearMonth)
 		{
-			html += '<option value="' + item.yearMonth + '" selected="selected">' + item.monthName + ' ' + item.year + latest + '</option>\n'
+			html += '<option value="' + item.yearMonth + '" selected="selected">' + item.monthName + ' ' + item.year + '</option>\n'
 		}
 		else
 		{
@@ -218,6 +224,9 @@ function renderDataPacksSelect()
 	}
 
 	select.html(html);
+
+	$('#dataPacksSelect').prop('disabled', window.localStorage.selectLatest == 'true');
+	$('#useLatest').prop('checked', window.localStorage.selectLatest == 'true');
 }
 
 /**
