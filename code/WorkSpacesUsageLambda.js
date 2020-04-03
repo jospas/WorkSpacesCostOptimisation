@@ -21,9 +21,6 @@ exports.handler = async (event, context, callback) =>
         // Creates config from environment
         var config = createConfig();
 
-        // S3 connection
-        var amazons3 = new AWS.S3();
-
         // Updates AWS config
         updateAWSConfig(config);
 
@@ -55,6 +52,12 @@ exports.handler = async (event, context, callback) =>
 
         // Save compressed populated workspace json data
         const compressedWorkspaces = await gzip(JSON.stringify(workspaces, null, "  "));
+
+        // Clear credentials
+        AWS.config.credentials = null;
+
+        // S3 connection
+        var amazons3 = new AWS.S3();
 
         // Save workpsaces data to S3
         await saveToS3(amazons3, 

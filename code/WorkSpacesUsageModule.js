@@ -14,47 +14,6 @@ exports.processConfig = function(config)
 }
 
 /**
- * Converts billing mode for all workspaces if requested
- * and always responds with a conversion script
- */
-exports.convertBillingModes = async function(config, awsworkspaces, workspaces)
-{
-  var outputScript = "#!/bin/bash\n\n";
-
-  var convertedWorkspaces = 0;
-
-  try
-  {
-    for (var i = 0; i < workspaces.length; i++)
-    {
-      var workspace = workspaces[i];
-
-      printProgress(config, sprintf("[INFO] Converting billing modes: %.0f%%", i * 100.0 / workspaces.length));
-
-      if (workspace.Action === "CONVERT")
-      {
-        // Disabled conversion for now
-        if (false)
-        {
-          await convertBillingMode(config, awsworkspaces, workspace);
-          convertedWorkspaces++;  
-        }
-
-        outputScript += createUpdateScriptLine(config, workspace);
-      }
-    }
-  }
-  catch (error)
-  {
-    throw error;
-  }
-
-  printProgressDivider(config);
-
-  return outputScript;
-}
-
-/**
  * Describes workspaces bundles and computes 
  * hourly and monthly pricing
  */
@@ -164,15 +123,14 @@ exports.getWorkSpaces = async function(config, awsworkspaces)
  */
 exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, bundles)
 {
-  console.log("[INFO] Loading workspaces usage...");
-
   try
   {
     for (var i = 0; i < workspaces.length; i++)
     {
-      var connectedHours = await getWorkSpaceUsage(config, awscloudwatch, workspaces[i]);
-      workspaces[i].ConnectedHours = connectedHours;
+      console.log(sprintf("[INFO] Loading connected user metrics: %s - %.0f%%", 
+        workspaces[i].WorkspaceId, i * 100.0 / workspaces.length));
 
+      await getWorkSpaceUsage(config, awscloudwatch, workspaces[i]);
       analyseResults(config, workspaces[i], bundles);
       printProgress(config, sprintf("[INFO] Loading connected user metrics: %.0f%%", 
         i * 100.0 / workspaces.length));
@@ -667,24 +625,26 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
     try
     {
       var metrics = await awscloudwatch.getMetricStatistics(params).promise();
-
       var billableTime = 0;
 
       workspace.DailyUsage = [];
       workspace.DailyUsage.length = getDaysInMonth();
       workspace.DailyUsage.fill(0);
+      workspace.ConnectedHours = 0;
 
       for (var m = 0; m < metrics.Datapoints.length; m++)
       {
         if (metrics.Datapoints[m].Maximum > 0)
         {
-          // Track daily aggregate usage (in UTC) offset by 7 hours to make this align with
+          // Track daily aggregate usage (in UTC) offset by -7 hours to make this align with
           // the billing month -7 UTC
-          var when = moment.utc(metrics.Datapoints[m].Timestamp).add(7, 'hours');
-          workspace.DailyUsage[when.date() - 1]++;
+          var when = moment(metrics.Datapoints[m].Timestamp);
+          var hoursSinceStart = Math.abs(when.diff(startDate, 'hours'));
+          var daysSinceStart = Math.floor(hoursSinceStart / 24);
+          workspace.DailyUsage[daysSinceStart]++;
 
-          // Track a billable hour
-          billableTime++;
+          // Track a connected hour
+          workspace.ConnectedHours++;
         }
       }
 
@@ -692,10 +652,11 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
       workspace.MedianUsage = median(workspace.DailyUsage);
       workspace.MeanUsage = mean(workspace.DailyUsage);
 
-      return billableTime;
+      return;
     }
     catch (error)
     {
+      console.log(error);
       lastError = error;
       await sleep(getSleepTime(retry));     
       retry++;
@@ -736,15 +697,6 @@ function computeBestFitAndAction(workspace)
 
     var cumulativeUse = 0;
     var hours = 0;
-
-    // if (workspace.BillableHours < 72)
-    // {
-    //   workspace.HasPrediction = false;
-    //   workspace.Action = 'KEEP';
-    //   workspace.ActionReason = 'Insufficient data to make prediction';
-    //   workspace.ActionConfidence = 0.0;
-    //   return;
-    // }
 
     workspace.DailyUsage.forEach(usage =>{
       if (hours < (workspace.BillableHours + 12))

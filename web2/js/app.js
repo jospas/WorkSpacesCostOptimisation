@@ -602,7 +602,7 @@ function getSingleUsage(workspace)
   var hours = 0;
 
   workspace.DailyUsage.forEach(usage =>{
-    if (hours < (workspace.BillableHours + 12))
+    if (hours < (workspace.BillableHours))
     {
         cumulativeUse += usage;
         dataSet.data.push(cumulativeUse);
@@ -662,6 +662,12 @@ function getSingleUsage(workspace)
   {
     dataSets.push(bestFit);
   }
+	console.log('-----------------------------');
+  console.log('Billable hours: ' + workspace.BillableHours);
+  console.log('Connected hours: ' + workspace.ConnectedHours);
+  console.log('Utilisation: ' + workspace.Utilisation);
+  console.log('Usage: ' + JSON.stringify(workspace.DailyUsage));
+  console.log('-----------------------------');
 
   return dataSets;
 }
