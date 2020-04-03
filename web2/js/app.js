@@ -567,21 +567,26 @@ function createGraphTable(workspaces, filter)
 
 function getSingleUsage(workspace)
 {
-  var lineColor = 'rgba(0, 0, 255, 0.3)';
+  var lineColor = 'rgba(0, 0, 255, 0.7)';
+  var fillColor = 'rgba(0, 0, 255, 0.1)';
 
   if (workspace.Mode === 'HOURLY')
   {
-    lineColor = 'rgba(0, 255, 0, 0.3)';
+    lineColor = 'rgba(40, 219, 15, 0.7)';
+    fillColor = 'rgba(40, 219, 15, 0.1)';
   }
 
   var dataSets = [];
 
   var dataSet = {
     label: workspace.WorkspaceId,
-    borderWidth: 1,
+    borderWidth: 2,
     lineTension: 0,
     fill: false,
-    backgroundColor: lineColor,
+    pointRadius: 3,
+    pointHitRadius: 4,
+    borderColor: lineColor,
+    backgroundColor: fillColor,
     data: []
   };
   var cumulativeUse = 0;
@@ -600,11 +605,12 @@ function getSingleUsage(workspace)
 
   var optimalUsageDataSet = {
     label: 'Optimal monthly usage',
-    borderWidth: 1,
+    borderWidth: 2,
     lineTension: 0,
     fill: false,
-    borderColor: 'rgba(255, 0, 0, 1)',
-    backgroundColor: 'rgba(255, 0, 0, 1)',
+    pointStyle: 'line',
+    borderColor: 'rgba(255, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 0, 0, 0.5)',
     pointRadius: 0,
     pointHitRadius: 2,
     data: []
@@ -620,11 +626,12 @@ function getSingleUsage(workspace)
 
   var optimalDailyDataSet = {
     label: 'Optimal daily usage',
-    borderWidth: 1,
+    borderWidth: 2,
     lineTension: 0,
     fill: false,
-    borderColor: 'rgba(0, 255, 0, 1)',
-    backgroundColor: 'rgba(0, 255, 0, 1)',
+    pointStyle: 'line',
+    borderColor: 'rgba(255, 165, 0, 0.5)',
+    backgroundColor: 'rgba(255, 165, 0, 0.5)',
     pointRadius: 0,
     pointHitRadius: 2,
     data: []
@@ -659,11 +666,13 @@ function getBestFit(workspace)
 
   var bestFitDataSet = {
       label: 'Predicted use',
-      borderWidth: 1,
+      borderWidth: 2,
       lineTension: 0,
+      borderDash: [10,5],
       fill: false,
-      borderColor: 'rgba(0, 0, 255, 1)',
-      backgroundColor: 'rgba(0, 0, 255, 1)',
+      pointStyle: 'line',
+      borderColor: 'rgba(223, 52, 235, 0.7)',
+      backgroundColor: 'rgba(223, 52, 235, 0.7)',
       pointRadius: 0,
       pointHitRadius: 2,
       data: []
@@ -723,7 +732,12 @@ function createSingleChart(workspaceId)
         responsive: true,
         maintainAspectRatio: true,
         legend: {
-          display: false
+          display: true,
+          position: 'bottom',
+          labels: {
+            boxWidth: 6,
+            usePointStyle: true
+          }
         },
         scales: {
           yAxes: [{
