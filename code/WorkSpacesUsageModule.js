@@ -737,14 +737,14 @@ function computeBestFitAndAction(workspace)
     var cumulativeUse = 0;
     var hours = 0;
 
-    if (workspace.BillableHours < 72)
-    {
-      workspace.HasPrediction = false;
-      workspace.Action = 'KEEP';
-      workspace.ActionReason = 'Insufficient data to make prediction';
-      workspace.ActionConfidence = 0.0;
-      return;
-    }
+    // if (workspace.BillableHours < 72)
+    // {
+    //   workspace.HasPrediction = false;
+    //   workspace.Action = 'KEEP';
+    //   workspace.ActionReason = 'Insufficient data to make prediction';
+    //   workspace.ActionConfidence = 0.0;
+    //   return;
+    // }
 
     workspace.DailyUsage.forEach(usage =>{
       if (hours < (workspace.BillableHours + 12))
@@ -776,6 +776,15 @@ function computeBestFitAndAction(workspace)
         day++;
     });
 
+    if (xSeriesClamped.length < 3)
+    {
+      workspace.HasPrediction = false;
+      workspace.Action = 'KEEP';
+      workspace.ActionReason = 'Insufficient data to make prediction';
+      workspace.ActionConfidence = 0.0;
+      return;
+    }
+
     var leastSquaresCoeff = leastSquares(xSeriesClamped, ySeriesClamped);
 
     var x1 = 1;
@@ -792,7 +801,10 @@ function computeBestFitAndAction(workspace)
     }
     else
     {
-        workspace.HasPrediction = false;
+        workspace.HasPrediction = true;
+        workspace.LeastSquaresData = leastSquaresCoeff;
+        workspace.PredictedCrossOver = 10000;
+        workspace.PredictionConfidence = 1.0;
     }
 
     /**
@@ -806,7 +818,13 @@ function computeBestFitAndAction(workspace)
         workspace.ActionReason = 'Hourly usage exceeds monthly billing threshold';
         workspace.ActionConfidence = 1.0;
       }
-      else if (workspace.HasPrediction)
+      else if (workspace.ConnectedHours == 0)
+      {
+        workspace.Action = 'MONITOR';
+        workspace.ActionReason = 'Consider termination as instance has zero use';
+        workspace.ActionConfidence = workspace.PredictionConfidence;
+      }      
+      else
       {
         if (workspace.PredictionConfidence >= 0.7)
         {
@@ -830,18 +848,6 @@ function computeBestFitAndAction(workspace)
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
       }
-      else if (workspace.ConnectedHours == 0)
-      {
-        workspace.Action = 'MONITOR';
-        workspace.ActionReason = 'Consider termination as instance has zero use';
-        workspace.ActionConfidence = 0.5;
-      }
-      else
-      {
-        workspace.Action = 'KEEP';
-        workspace.ActionReason = 'Prediction not available due to no recent usage';
-        workspace.ActionConfidence = 0.0;
-      }
     }
     /**
      * Monthly actions
@@ -860,7 +866,7 @@ function computeBestFitAndAction(workspace)
         workspace.ActionReason = 'Consider conversion to hourly or termination at end of month';
         workspace.ActionConfidence = workspace.PredictionConfidence;
       }
-      else if (workspace.HasPrediction)
+      else
       {
         if (workspace.PredictionConfidence >= 0.7)
         {
@@ -883,18 +889,6 @@ function computeBestFitAndAction(workspace)
           workspace.ActionReason = 'Prediction has low confidence';
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
-      }
-      else if (workspace.ConnectedHours == 0)
-      {
-        workspace.Action = 'MONITOR';
-        workspace.ActionReason = 'Consider conversion to hourly or termination';
-        workspace.ActionConfidence = 0.5;
-      }
-      else
-      {
-        workspace.Action = 'MONITOR';
-        workspace.ActionReason = 'Consider conversation to hourly next month';
-        workspace.ActionConfidence = 0.0;
       }
     }
 }

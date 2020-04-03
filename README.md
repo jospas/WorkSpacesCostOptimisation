@@ -48,7 +48,7 @@ You will require the following minimum IAM policy:
 	      {
 	        "Effect":"Allow",
 	        "Action":["workspaces:DescribeWorkspaces",
-	          "workspaces:ModifyWorkspaceProperties"],
+	          "workspaces:DescribeWorkspaceBundles"],
 	        "Resource":"*"
 	      },
 	      {

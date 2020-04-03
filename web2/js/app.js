@@ -200,9 +200,16 @@ function renderDataPacksSelect()
 	{
 		var item = availableData[i];
 
+		var latest = '';
+
+		if (item.latest == true)
+		{
+			latest = ' (current)';
+		}
+
 		if (item.yearMonth === selectedDataPack.yearMonth)
 		{
-			html += '<option value="' + item.yearMonth + '" selected="selected">' + item.monthName + ' ' + item.year + '</option>\n'
+			html += '<option value="' + item.yearMonth + '" selected="selected">' + item.monthName + ' ' + item.year + latest + '</option>\n'
 		}
 		else
 		{
@@ -228,18 +235,29 @@ async function loadAvailableData()
 		var response = await axios.get(siteConfig.availableDataUrl, axiosConfig);
 		var availableWorkspaceData = response.data;
 
-		var latest = availableWorkspaceData.workspaces.filter(item => item.latest);
 		var rest = availableWorkspaceData.workspaces.filter(item => !item.latest);
 
-		rest.sort((a, b) => {
+		availableWorkspaceData.workspaces.sort((a, b) => {
 			return (a.yearMonth > b.yearMonth) ? -1 : ((b.yearMonth > a.yearMonth) ? 1 : 0)
 		});
 
-		availableData = rest;
+		availableData = availableWorkspaceData.workspaces;
+
+		console.log('Loaded available data: ' + JSON.stringify(availableData, null, "  "));
+
+		if (!window.localStorage.selectLatest)
+		{
+			window.localStorage.selectLatest = true;
+		}
+
+		if (window.localStorage.selectLatest == true)
+		{
+			selectDataPack(availableData[0].yearMonth);
+		}
 
 		if (!window.localStorage.dataPack)
 		{
-			selectDataPack(rest[0].yearMonth);
+			selectDataPack(availableData[0].yearMonth);
 		}
 
 		selectedDataPack = getSelectedDataPack();
@@ -731,8 +749,10 @@ function showWorkspaceDialog(workspaceId)
     $("#workspaceDetailsTitle").text("Amazon Workspace Usage: " + workspace.WorkspaceId + 
       " " + workspace.UserName + " (" + workspace.Mode + ")");
     $("#workspaceAction").text(workspace.Action);
-    $("#workspaceActionReason").text(workspace.ActionReason);
+    $("#workspaceActionReason").text(workspace.ActionReason + ' - (confidence ' + 
+    		(isNaN(workspace.ActionConfidence) ? 0.0 : workspace.ActionConfidence) + ')')
     $("#workspaceDetailsDialog").modal();
+    //console.log('Least squares: ' + JSON.stringify(workspace.LeastSquaresData, null, "  "));
   }
 }
 

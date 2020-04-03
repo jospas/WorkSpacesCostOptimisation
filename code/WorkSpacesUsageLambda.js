@@ -59,12 +59,6 @@ exports.handler = async (event, context, callback) =>
         // Save workpsaces data to S3
         await saveToS3(amazons3, 
             config.bucket, 
-            config.keyPrefix + "workspaces.json.gz", 
-            "application/x-gzip", 
-            compressedWorkspaces);
-
-        await saveToS3(amazons3, 
-            config.bucket, 
             config.keyPrefix + "workspaces_" + nowPST.format("YYYY_MM") + ".json.gz", 
             "application/x-gzip",
             compressedWorkspaces);

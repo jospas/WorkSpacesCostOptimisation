@@ -65,26 +65,27 @@ exports.handler = async (event, context, callback) => {
           url: url,
         };
 
-        if (data.name == "workspaces.json.gz")
-        {
-          data.latest = true;
-          data.year = nowPST.format('YYYY');
-          data.monthName = nowPST.format('MMMM');
-          data.monthIndex = nowPST.format('MM');
-        }
-        else
-        {
-          data.latest = false;
-          let nameRegex = /^workspaces_(?<year>[0-9]{4})_(?<month>[0-9]{2}).*/;
-          let groups = data.name.match(nameRegex).groups;
-          data.year = groups.year;
-          data.monthName = moment(groups.month, 'MM').format('MMMM');
-          data.monthIndex = groups.month;
-        }
+        let nameRegex = /^workspaces_(?<year>[0-9]{4})_(?<month>[0-9]{2}).*/;
+        var match = data.name.match(nameRegex);
 
-        data.yearMonth = data.year + '' + data.monthIndex;
+        if (match)
+        {
+          data.year = match.groups.year;
+          data.monthName = moment(match.groups.month, 'MM').format('MMMM');
+          data.monthIndex = match.groups.month;
+          data.yearMonth = data.year + '' + data.monthIndex;
 
-        workspaceData.push(data);
+          if (nowPST.format('YYYY') == data.year && nowPST.format('MM') == data.monthIndex)
+          {
+            data.latest = true;
+          }
+          else
+          {
+            data.latest = false;
+          }
+
+          workspaceData.push(data);
+        }
       }
 
       const response = {
