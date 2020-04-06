@@ -815,10 +815,16 @@ function computeBestFitAndAction(workspace)
             workspace.ActionReason = 'Cumulative usage exceeds daily threshold for all days';
             workspace.ActionConfidence = workspace.PredictionConfidence;
         }
+        else if (countBelow > 0 && countAbove == 0)
+        {
+            workspace.Action = 'KEEP';
+            workspace.ActionReason = 'Cumulative usage is below daily threshold for all days';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
         else
         {
           workspace.Action = 'MONITOR';
-          workspace.ActionReason = 'Prediction has low confidence, monitor usage';
+          workspace.ActionReason = 'Variable usage and low prediction confidence, monitor usage';
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
       }
@@ -863,10 +869,16 @@ function computeBestFitAndAction(workspace)
             workspace.ActionReason = 'Cumulative usage below daily threshold for all days';
             workspace.ActionConfidence = workspace.PredictionConfidence;
         }
+        else if (countAbove > 0 && countBelow == 0)
+        {
+            workspace.Action = 'KEEP';
+            workspace.ActionReason = 'Monthly usage currently exceeds usage thresholds';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
         else
         {
           workspace.Action = 'MONITOR';
-          workspace.ActionReason = 'Prediction has low confidence, monitor usage';
+          workspace.ActionReason = 'Variable usage and low prediction confidence, monitor usage';
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
       }
