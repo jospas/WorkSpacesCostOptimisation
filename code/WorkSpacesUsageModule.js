@@ -127,9 +127,6 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
   {
     for (var i = 0; i < workspaces.length; i++)
     {
-      console.log(sprintf("[INFO] Loading connected user metrics: %s - %.0f%%", 
-        workspaces[i].WorkspaceId, i * 100.0 / workspaces.length));
-
       await getWorkSpaceUsage(config, awscloudwatch, workspaces[i]);
       analyseResults(config, workspaces[i], bundles);
       printProgress(config, sprintf("[INFO] Loading connected user metrics: %.0f%%", 
@@ -458,7 +455,7 @@ function analyseResults(config, workspace, bundles)
  */
 async function describeWorkspaceBundlesPage(params, awsworkspaces)
 {
-  var maxRetries = 10;
+  var maxRetries = 50;
   var retry = 0;
 
   var lastError = null;
@@ -487,7 +484,7 @@ async function describeWorkspaceBundlesPage(params, awsworkspaces)
  */
 async function getWorkspacesPage(params, awsworkspaces)
 {
-  var maxRetries = 10;
+  var maxRetries = 50;
   var retry = 0;
 
   var lastError = null;
@@ -597,7 +594,7 @@ function median(dailyUsageArray)
  */
 async function getWorkSpaceUsage(config, awscloudwatch, workspace)
 {
-  var maxRetries = 10;
+  var maxRetries = 50;
   var retry = 0;
   var lastError = null;
 
@@ -697,12 +694,31 @@ function computeBestFitAndAction(workspace)
 
     var cumulativeUse = 0;
     var hours = 0;
+    var countAbove = 0;
+    var countBelow = 0;
+    var optimalUsageSum = 0;
+    var optimalDailyHours = workspace.OptimalMonthlyHours / workspace.DailyUsage.length;
 
+    /**
+     * Compute cumulative usage
+     */
     workspace.DailyUsage.forEach(usage =>{
       if (hours < (workspace.BillableHours + 12))
       {
         cumulativeUse += usage;
         ySeries.push(cumulativeUse);
+
+        optimalUsageSum += optimalDailyHours;
+
+        if (cumulativeUse > optimalUsageSum)
+        {
+          countAbove++;
+        }
+        else
+        {
+          countBelow++;
+        }
+
         hours += 24;
       }
     });
@@ -778,7 +794,7 @@ function computeBestFitAndAction(workspace)
       }      
       else
       {
-        if (workspace.PredictionConfidence >= 0.7)
+        if (workspace.PredictionConfidence >= 0.8)
         {
           if (workspace.PredictedCrossOver < workspace.DailyUsage.length - 2)
           {
@@ -793,10 +809,16 @@ function computeBestFitAndAction(workspace)
             workspace.ActionConfidence = workspace.PredictionConfidence;
           }
         }
+        else if (countAbove > 0 && countBelow == 0)
+        {
+            workspace.Action = 'INSPECT';
+            workspace.ActionReason = 'Cumulative usage exceeds daily threshold for all days';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
         else
         {
-          workspace.Action = 'KEEP';
-          workspace.ActionReason = 'Prediction has low confidence';
+          workspace.Action = 'MONITOR';
+          workspace.ActionReason = 'Prediction has low confidence, monitor usage';
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
       }
@@ -820,7 +842,7 @@ function computeBestFitAndAction(workspace)
       }
       else
       {
-        if (workspace.PredictionConfidence >= 0.7)
+        if (workspace.PredictionConfidence >= 0.8)
         {
           if (workspace.PredictedCrossOver < workspace.DailyUsage.length - 2)
           {
@@ -835,10 +857,16 @@ function computeBestFitAndAction(workspace)
             workspace.ActionConfidence = workspace.PredictionConfidence;
           }
         }
+        else if (countBelow > 0 && countAbove == 0)
+        {
+            workspace.Action = 'MONITOR';
+            workspace.ActionReason = 'Cumulative usage below daily threshold for all days';
+            workspace.ActionConfidence = workspace.PredictionConfidence;
+        }
         else
         {
-          workspace.Action = 'KEEP';
-          workspace.ActionReason = 'Prediction has low confidence';
+          workspace.Action = 'MONITOR';
+          workspace.ActionReason = 'Prediction has low confidence, monitor usage';
           workspace.ActionConfidence = workspace.PredictionConfidence;
         }
       }
@@ -882,7 +910,7 @@ function getSleepTime(retry)
   }
   else
   {
-    return 2500;
+    return 2000;
   }
 }
 

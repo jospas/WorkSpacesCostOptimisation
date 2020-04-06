@@ -406,7 +406,7 @@ function createGraphTableDataset(workspaces)
       '',
       workspace.WorkspaceId,
       workspace.UserName,
-      workspace.WorkspaceProperties.ComputeTypeName,
+      workspace.WorkspaceProperties.ComputeTypeName ? workspace.WorkspaceProperties.ComputeTypeName : "UNKNOWN",
       workspace.Mode,
       computeCost(workspace),
       workspace.ConnectedHours,
