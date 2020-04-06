@@ -1,486 +1,480 @@
 {
-  "regions":
+  "os":
   {
-    "ap_southeast_2":
+    "windows":
     {
-      "os":
+      "licence":
       {
-        "windows":
+        "included":
         {
-          "licence":
+          "computeType":
           {
-            "included":
+            "VALUE":
             {
-              "computeTypes":
+              "hourly": 0.28,
+              "monthly":
               {
-                "VALUE":
+                "storage_80_10":
                 {
-                  "hourly": 0.28,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 33,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 37,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 41,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 49,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 33,
+                  "hourly": 10
                 },
-                "STANDARD":
+                "storage_80_50":
                 {
-                  "hourly": 0.39,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 42,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 45,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 50,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 56,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 37,
+                  "hourly": 14
                 },
-                "PERFORMANCE":
+                "storage_80_100":
                 {
-                  "hourly": 0.58,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 56,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 59,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 62,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 70,
-                      "hourly": 26
-                    }
-                  }
-                }, 
-                "POWER":
-                {
-                  "hourly": 0.89,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 103,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 105,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 108,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 112,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 41,
+                  "hourly": 19
                 },
-                "POWERPRO":
+                "storage_175_100":
                 {
-                  "hourly": 1.72,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 151,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 154,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 158,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 165,
-                      "hourly": 26
-                    }
-                  }
-                }, 
-                "GRAPHICS":
-                {
-                  "hourly": 2.41,
-                  "monthly":
-                  {
-                    "storage_100_100":
-                    {
-                      "monthly": 884,
-                      "hourly": 30
-                    }
-                  }
-                },
-                "GRAPHICSPRO":
-                {
-                  "hourly": 14.34,
-                  "monthly":
-                  {
-                    "storage_100_100":
-                    {
-                      "monthly": 1232,
-                      "hourly": 81
-                    }
-                  }
+                  "monthly": 49,
+                  "hourly": 26
                 }
               }
             },
-            "byol":
+            "STANDARD":
             {
-              "computeTypes":
+              "hourly": 0.39,
+              "monthly":
               {
-                "VALUE":
+                "storage_80_10":
                 {
-                  "hourly": 0.23,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 29,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 33,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 37,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 45,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 42,
+                  "hourly": 10
                 },
-                "STANDARD":
+                "storage_80_50":
                 {
-                  "hourly": 0.33,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 38,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 41,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 46,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 52,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 45,
+                  "hourly": 14
                 },
-                "PERFORMANCE":
+                "storage_80_100":
                 {
-                  "hourly": 0.53,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 52,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 55,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 58,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 66,
-                      "hourly": 26
-                    }
-                  }
-                }, 
-                "POWER":
-                {
-                  "hourly": 0.85,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 99,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 101,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 104,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 108,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 50,
+                  "hourly": 19
                 },
-                "POWERPRO":
+                "storage_175_100":
                 {
-                  "hourly": 1.68,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 147,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 150,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 154,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 161,
-                      "hourly": 26
-                    }
-                  }
-                }, 
-                "GRAPHICS":
+                  "monthly": 56,
+                  "hourly": 26
+                }
+              }
+            },
+            "PERFORMANCE":
+            {
+              "hourly": 0.58,
+              "monthly":
+              {
+                "storage_80_10":
                 {
-                  "monthly":
-                  {
-                    "storage_100_100":
-                    {
-                      "monthly": 880
-                    }
-                  }
+                  "monthly": 56,
+                  "hourly": 10
                 },
-                "GRAPHICSPRO":
+                "storage_80_50":
                 {
-                  "hourly": 14.29,
-                  "monthly":
-                  {
-                    "storage_100_100":
-                    {
-                      "monthly": 1228,
-                      "hourly": 81
-                    }
-                  }
+                  "monthly": 59,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 62,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 70,
+                  "hourly": 26
+                }
+              }
+            }, 
+            "POWER":
+            {
+              "hourly": 0.89,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 103,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 105,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 108,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 112,
+                  "hourly": 26
+                }
+              }
+            },
+            "POWERPRO":
+            {
+              "hourly": 1.72,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 151,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 154,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 158,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 165,
+                  "hourly": 26
+                }
+              }
+            }, 
+            "GRAPHICS":
+            {
+              "hourly": 2.41,
+              "monthly":
+              {
+                "storage_100_100":
+                {
+                  "monthly": 884,
+                  "hourly": 30
+                }
+              }
+            },
+            "GRAPHICSPRO":
+            {
+              "hourly": 14.34,
+              "monthly":
+              {
+                "storage_100_100":
+                {
+                  "monthly": 1232,
+                  "hourly": 81
                 }
               }
             }
           }
         },
-        "linux":
+        "byol":
         {
-          "licence":
-          {          
-            "included":
+          "computeType":
+          {
+            "VALUE":
             {
-              "computeTypes":
+              "hourly": 0.23,
+              "monthly":
               {
-                "VALUE":
+                "storage_80_10":
                 {
-                  "hourly": 0.23,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 29,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 33,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 37,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 45,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 29,
+                  "hourly": 10
                 },
-                "STANDARD":
+                "storage_80_50":
                 {
-                  "hourly": 0.33,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 38,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 41,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 46,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 52,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 33,
+                  "hourly": 14
                 },
-                "PERFORMANCE":
+                "storage_80_100":
                 {
-                  "hourly": 0.53,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 52,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 55,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 58,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 66,
-                      "hourly": 26
-                    }
-                  }
-                }, 
-                "POWER":
-                {
-                  "hourly": 0.85,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 99,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 101,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 104,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 180,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 37,
+                  "hourly": 19
                 },
-                "POWERPRO":
+                "storage_175_100":
                 {
-                  "hourly": 1.68,
-                  "monthly":
-                  {
-                    "storage_80_10":
-                    {
-                      "monthly": 147,
-                      "hourly": 10
-                    },
-                    "storage_80_50":
-                    {
-                      "monthly": 150,
-                      "hourly": 14
-                    },
-                    "storage_80_100":
-                    {
-                      "monthly": 154,
-                      "hourly": 19
-                    },
-                    "storage_175_100":
-                    {
-                      "monthly": 161,
-                      "hourly": 26
-                    }
-                  }
+                  "monthly": 45,
+                  "hourly": 26
+                }
+              }
+            },
+            "STANDARD":
+            {
+              "hourly": 0.33,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 38,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 41,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 46,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 52,
+                  "hourly": 26
+                }
+              }
+            },
+            "PERFORMANCE":
+            {
+              "hourly": 0.53,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 52,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 55,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 58,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 66,
+                  "hourly": 26
+                }
+              }
+            }, 
+            "POWER":
+            {
+              "hourly": 0.85,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 99,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 101,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 104,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 108,
+                  "hourly": 26
+                }
+              }
+            },
+            "POWERPRO":
+            {
+              "hourly": 1.68,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 147,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 150,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 154,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 161,
+                  "hourly": 26
+                }
+              }
+            }, 
+            "GRAPHICS":
+            {
+              "monthly":
+              {
+                "storage_100_100":
+                {
+                  "monthly": 880
+                }
+              }
+            },
+            "GRAPHICSPRO":
+            {
+              "hourly": 14.29,
+              "monthly":
+              {
+                "storage_100_100":
+                {
+                  "monthly": 1228,
+                  "hourly": 81
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "linux":
+    {
+      "licence":
+      {          
+        "included":
+        {
+          "computeType":
+          {
+            "VALUE":
+            {
+              "hourly": 0.23,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 29,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 33,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 37,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 45,
+                  "hourly": 26
+                }
+              }
+            },
+            "STANDARD":
+            {
+              "hourly": 0.33,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 38,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 41,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 46,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 52,
+                  "hourly": 26
+                }
+              }
+            },
+            "PERFORMANCE":
+            {
+              "hourly": 0.53,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 52,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 55,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 58,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 66,
+                  "hourly": 26
+                }
+              }
+            }, 
+            "POWER":
+            {
+              "hourly": 0.85,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 99,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 101,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 104,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 180,
+                  "hourly": 26
+                }
+              }
+            },
+            "POWERPRO":
+            {
+              "hourly": 1.68,
+              "monthly":
+              {
+                "storage_80_10":
+                {
+                  "monthly": 147,
+                  "hourly": 10
+                },
+                "storage_80_50":
+                {
+                  "monthly": 150,
+                  "hourly": 14
+                },
+                "storage_80_100":
+                {
+                  "monthly": 154,
+                  "hourly": 19
+                },
+                "storage_175_100":
+                {
+                  "monthly": 161,
+                  "hourly": 26
                 }
               }
             }

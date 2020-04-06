@@ -1,5 +1,3 @@
-var fs = require("fs");
-var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
 const { gzip } = require("node-gzip");
 var ws = require("./WorkSpacesUsageModule");
@@ -28,16 +26,15 @@ exports.handler = async (event, context, callback) =>
         var awsworkspaces = new AWS.WorkSpaces();
         var awscloudwatch = new AWS.CloudWatch();
 
-        // Load the public pricing for the configured region
-        var publicPricing = await ws.getPublicPricing(config);
-        console.log("[INFO] Loaded public pricing");
+        // Load the workspaces pricing for this region
+        var regionPricing = await ws.getRegionPricing(config);
 
         // Load the customer bundles
-        var customerBundles = await ws.describeWorkspaceBundles(config, null, awsworkspaces, publicPricing);
+        var customerBundles = await ws.describeWorkspaceBundles(config, null, awsworkspaces);
         console.log("[INFO] Loaded: %d customer bundles", customerBundles.length);
 
         // Load the amazon bundles
-        var amazonBundles = await ws.describeWorkspaceBundles(config, "AMAZON", awsworkspaces, publicPricing);
+        var amazonBundles = await ws.describeWorkspaceBundles(config, "AMAZON", awsworkspaces);
         console.log("[INFO] Loaded: %d Amazon bundles", amazonBundles.length);
 
         // Join the bundles
@@ -48,7 +45,7 @@ exports.handler = async (event, context, callback) =>
         console.log("[INFO] Loaded: %d workspaces", workspaces.length);
 
         // Load usage from CloudWatch
-        await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles);
+        await ws.getWorkSpacesUsage(config, awscloudwatch, workspaces, allBundles, regionPricing);
 
         // Save compressed populated workspace json data
         const compressedWorkspaces = await gzip(JSON.stringify(workspaces, null, "  "));
@@ -130,7 +127,7 @@ function createConfig()
 
     config.region = process.env.REGION;
     config.directoryId = process.env.DIRECTORY_ID;
-    config.windowsBYOL = process.env.WINDOWS_BYOL;
+    config.windowsBYOL = (process.env.WINDOWS_BYOL == 'true');
     config.bucket = process.env.BUCKET;
     config.keyPrefix = process.env.KEY_PREFIX;
 

@@ -1,6 +1,6 @@
 # Amazon WorkSpaces Cost Optimisation
 
-Provides a simple Node.js script and soon a Lambda function that allows inspection of Amazon WorkSpaces usage and conversion of billing modes to reduce costs.
+Provides a dashboard 
 
 This is a Node.js conversion of the existing project that provides a full deployable solution to AWS but for one off usage by customers:
 

@@ -11,13 +11,13 @@ exports.processConfig = function(config)
 {
   config.lastDayOfMonth = isLastDayOfMonth();
   console.log("[INFO] Last day of month: " + config.lastDayOfMonth);
-}
+};
 
 /**
  * Describes workspaces bundles and computes 
  * hourly and monthly pricing
  */
-exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces, publicPricing)
+exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces)
 {
 
   if (owner)
@@ -66,8 +66,6 @@ exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces, 
       {
         bundle.Windows = false;
       }
-
-      populateBundlePricing(config, publicPricing, bundle);
     });
 
     return results;
@@ -77,7 +75,7 @@ exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces, 
     console.log("\n[ERROR] Failed to retrieve bundles", error);
     throw error;
   }
-}
+};
 
 /**
  * Loads information about all workspaces
@@ -116,19 +114,19 @@ exports.getWorkSpaces = async function(config, awsworkspaces)
     console.log("\n[ERROR] Failed to retrieve workspaces", error);
     throw error;
   }
-}
+};
 
 /**
  * Loads usage for all WorkSpaces from CloudWatch
  */
-exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, bundles)
+exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, bundles, regionPricing)
 {
   try
   {
     for (var i = 0; i < workspaces.length; i++)
     {
       await getWorkSpaceUsage(config, awscloudwatch, workspaces[i]);
-      analyseResults(config, workspaces[i], bundles);
+      analyseResults(config, workspaces[i], bundles, regionPricing);
       printProgress(config, sprintf("[INFO] Loading connected user metrics: %.0f%%", 
         i * 100.0 / workspaces.length));
     }
@@ -139,21 +137,7 @@ exports.getWorkSpacesUsage = async function(config, awscloudwatch, workspaces, b
   {
     throw error;
   }
-}
-
-/**
- * Fetches the compute type from the pricing bundle
- * converting to upper case and removing dashes
- */
-function getComputeType(bundleType)
-{
-  var bt = bundleType.toUpperCase();
-
-  bt = bt.replace(/ /g, "");
-  bt = bt.replace(/(.*)-[0-9]+/, "$1");
-
-  return bt;
-}
+};
 
 /**
  * Returns true if this is the last day of the month
@@ -166,198 +150,24 @@ function isLastDayOfMonth()
 }
 
 /**
- * Downloads public pricing for Workspaces via the Pricing API
+ * Loads region pricing
  */
-exports.getPublicPricing = async function getPublicPricing(config)
+exports.getRegionPricing = async function(config)
 {
-  console.log("[INFO] Loading public pricing for region: " + config.region);
+  console.log("[INFO] Loading region pricing for: " + config.region);
+  var pricingUrl = "https://aws-workspaces-pricing.s3.amazonaws.com/regions/" + config.region + ".json";
 
-  var allRegionsUrl = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonWorkSpaces/current/region_index.json";
-  var allRegionsResponse = await axios.get(allRegionsUrl);
-  var allRegionsData = allRegionsResponse.data;
-  var singleRegionUri = allRegionsData.regions[config.region].currentVersionUrl;
-  var singleRegionUrl = "https://pricing.us-east-1.amazonaws.com" + singleRegionUri;
-  var singleRegionResponse = await axios.get(singleRegionUrl);
-  var singleRegionData = singleRegionResponse.data;
-
-  // Iterate the hardware products extracting a bunch of relevant data
-  var skus = Object.entries(singleRegionData["products"])
-      .filter(product => product[1].attributes.resourceType === "Hardware")
-      .map(function (product) 
+  try
   {
-    var response = {};
-    response.sku = product[1].sku;
-    response.runningMode = product[1].attributes.runningMode;
-    response.computeType = getComputeType(product[1].attributes.bundle);
-    response.windows = product[1].attributes.operatingSystem === "Windows";
-    response.os = response.windows ? "WINDOWS" : "LINUX";
-
-    response.license = product[1].attributes.license.toUpperCase();
-
-    if (response.license.startsWith("BRING YOUR"))
-    {
-      response.license = "BYOL";
-    }
-
-    if (response.license === "NONE")
-    {
-      response.license = "INCLUDED";
-    }
-
-    response.vcpus = product[1].attributes.vcpu;
-    response.memory = product[1].attributes.memory.replace(" GB", "");
-
-    if (product[1].attributes.rootvolume && product[1].attributes.uservolume) 
-    {
-      response.rootvolume = product[1].attributes.rootvolume.replace(" GB", "");  
-      response.uservolume = product[1].attributes.uservolume.replace(" GB", "");
-    }
-    else if (product[1].attributes.storage && 
-      product[1].attributes.storage.match(/Root:([0-9]+) GB,User:([0-9]+) GB/))
-    {
-      response.rootvolume = product[1].attributes.storage.replace(/Root:([0-9]+) GB,User:([0-9]+) GB/, "$1");
-      response.uservolume = product[1].attributes.storage.replace(/Root:([0-9]+) GB,User:([0-9]+) GB/, "$2");
-    }
-
-    // Extract pricing
-    var term = singleRegionData.terms.OnDemand[response.sku][response.sku + ".JRTCKXETXF"];
-
-    // Skip limited use and trial SKUs
-    if (term && term.priceDimensions)
-    {
-      term = term.priceDimensions[response.sku + ".JRTCKXETXF.6YS6EN2CT7"];
-
-      if (term.unit)
-      {
-        response.unit = term.unit.toUpperCase().replace("-", "");
-        response.price = term.pricePerUnit.USD;
-        return response;
-      }
-    }
-
-    console.log("[DEBUG] Skipping SKU with no valid pricing: " + response.sku);
-    return null;
-  });
-
-  var mapResult = {};
-  mapResult.WINDOWS = {};
-  mapResult.LINUX = {};
-
-  // Process the skus into a tree we can query
-  skus.forEach(sku => 
-  {
-    if (sku && sku.computeType != "STORAGE")
-    {
-      if (!mapResult[sku.os][sku.license])
-      {
-        mapResult[sku.os][sku.license] = {};
-      }
-
-      if (!mapResult[sku.os][sku.license][sku.computeType])
-      {
-        mapResult[sku.os][sku.license][sku.computeType] = {};
-        mapResult[sku.os][sku.license][sku.computeType].vcpus = sku.vcpus;
-        mapResult[sku.os][sku.license][sku.computeType].memory = sku.memory;
-      }
-
-      if (!mapResult[sku.os][sku.license][sku.computeType][sku.runningMode])
-      {
-        mapResult[sku.os][sku.license][sku.computeType][sku.runningMode] = {};
-      }
-
-      if (!mapResult[sku.os][sku.license][sku.computeType][sku.runningMode][sku.unit])
-      {
-        mapResult[sku.os][sku.license][sku.computeType][sku.runningMode][sku.unit] = {};
-      }
-
-      if (sku.unit === "HOUR")
-      {
-        mapResult[sku.os][sku.license][sku.computeType][sku.runningMode][sku.unit] = sku.price;
-      }
-      else
-      {
-        if (sku.rootvolume && sku.uservolume)
-        {
-          mapResult[sku.os][sku.license][sku.computeType][sku.runningMode][sku.unit]
-            [sku.rootvolume + "_" + sku.uservolume] = sku.price;  
-        }
-        else
-        {
-          mapResult[sku.os][sku.license][sku.computeType][sku.runningMode][sku.unit]["0_0"] = sku.price;
-        }
-      }
-      
-    }
-  });
-
-  return mapResult;
-}
-
-/**
- * Populates bundle pricing using loaded public pricing
- */
-function populateBundlePricing(config, publicPricing, bundle)
-{
-  var os = (bundle.Windows ? "WINDOWS" : "LINUX");
-
-  var license = "INCLUDED";
-
-  if (bundle.Windows && config.windowsBYOL)
-  {
-    license = "BYOL";
+    var response = await axios.get(pricingUrl);
+    return response.data;
   }
-
-  var computeType = bundle.ComputeType.Name;
-  var storageKey = bundle.RootStorage.Capacity + "_" + bundle.UserStorage.Capacity;
-
-  var pricingNode = publicPricing[os][license][computeType];
-
-  if (!pricingNode ||
-      !pricingNode.AlwaysOn ||
-      !pricingNode.AlwaysOn.MONTH ||
-      !pricingNode.AutoStop ||
-      !pricingNode.AutoStop.MONTH ||
-      !pricingNode.AutoStop.HOUR)
+  catch (error)
   {
-    throw new Error(sprintf("[ERROR] Failed to locate complete pricing for: [%s/%s/%s]", os, license, computeType));
+    console.log("[ERROR] Failed to load pricing for region: " + config.region, error);
+    throw error;
   }
-  
-  var monthlyPrice = pricingNode.AlwaysOn.MONTH[storageKey];
-
-  if (!monthlyPrice)
-  {
-    throw new Error(sprintf("[ERROR] Failed to locate always on monthly pricing for: [%s/%s/%s/%s]", os, license, computeType, storageKey));
-  }
-
-  var hourlyPrice = pricingNode.AutoStop.HOUR;
-
-  if (!hourlyPrice)
-  {
-    throw new Error(sprintf("[ERROR] Failed to locate auto stop hourly pricing for: [%s/%s/%s]", os, license, computeType));
-  }
-
-  var hourlyBasePrice = pricingNode.AutoStop.MONTH[storageKey];
-
-  if (!hourlyBasePrice)
-  {
-    throw new Error(sprintf("[ERROR] Failed to auto stop hourly base pricing for: [%s/%s/%s/%s]", os, license, computeType, storageKey));
-  }
-
-  bundle.monthlyPrice = monthlyPrice * 1;
-  bundle.hourlyBasePrice = hourlyBasePrice * 1;
-  bundle.hourlyPrice = hourlyPrice * 1;
-
-  var crossOverHours = 0;
-  var baseCost = bundle.hourlyBasePrice;
-
-  while (baseCost < bundle.monthlyPrice)
-  {
-    baseCost += bundle.hourlyPrice;
-    crossOverHours++;
-  }
-
-  bundle.optimalMonthlyHours = crossOverHours;
-}
+};
 
 /**
  * Locate a configured bundle by bundleId
@@ -379,13 +189,22 @@ function getBundle(workspace, bundles)
   }
 }
 
-/**
- * Fetches the number of days left in a month for a given date
- */
-function getDaysLeftInMonth()
+function getComputeType(workspace)
 {
-  var daysInMonth = getDaysInMonth();
-  return daysInMonth - moment.utc().date();
+  var computeType = workspace.WorkspaceProperties.ComputeTypeName;
+
+  if (!computeType)
+  {
+    if (workspace.State === 'PENDING')
+    {
+      computeType = "PENDING"; 
+    }
+    else
+    {
+      throw new Error("Failed to locate compute type for workspace: " + JSON.stringify(workspace, null, "  "));
+    }
+  }
+  return computeType;
 }
 
 /**
@@ -396,18 +215,77 @@ function getDaysInMonth()
   return moment().utc().daysInMonth();
 }
 
+function getRootStorage(workspace)
+{
+  var size = workspace.WorkspaceProperties.RootVolumeSizeGib;
+
+  if (!size)
+  {
+    return 0;
+  }
+
+  return size;
+}
+
+function getUserStorage(workspace)
+{
+  var size = workspace.WorkspaceProperties.UserVolumeSizeGib;
+
+  if (!size)
+  {
+    return 0;
+  }
+
+  return size;   
+}
+
+function getWorkspacePrice(config, workspace, regionPricing, bundle)
+{
+  console.log('[INFO] Bundle: ' + JSON.stringify(bundle, null, "  "));
+  console.log('[INFO] Workspace: ' + JSON.stringify(workspace, null, "  "));
+  var os = bundle.Windows ? "windows": "linux";
+
+  var licence = "included";
+
+  if (config.windowsBYOL && bundle.Windows)
+  {
+    licence = "byol";
+  }
+
+  console.log('[INFO] OS: ' + os + " licence: " + licence);
+  var computeType = getComputeType(workspace);
+  var storage = "storage_" + getRootStorage(workspace) + "_" + getUserStorage(workspace);
+  var pricing = {};
+
+  var storageNode = regionPricing.os[os].licence[licence].computeType[computeType].monthly[storage];
+
+  if (!storageNode)
+  {
+    throw new Error("Failed to locate pricing for workspace: " + JSON.stringify(workspace, null, "  "));
+  }
+
+  pricing.hourlyPrice = regionPricing.os[os].licence[licence].computeType[computeType].hourly;
+  pricing.hourlyBasePrice = storageNode.hourly;
+  pricing.monthlyPrice = storageNode.monthly;
+  pricing.optimalMonthlyHours = Math.floor((pricing.monthlyPrice - pricing.hourlyBasePrice) / pricing.hourlyPrice);
+
+  console.log("[INFO] Loaded workspace pricing: " + JSON.stringify(pricing, null, "  "));
+
+  return pricing;
+}
+
+
 /**
  * Analyses the results for a workspace for this year
  */
-function analyseResults(config, workspace, bundles)
+function analyseResults(config, workspace, bundles, regionPricing)
 {
   var runningMode = workspace.WorkspaceProperties.RunningMode;
   var bundle = getBundle(workspace, bundles);
+  var pricing = getWorkspacePrice(config, workspace, regionPricing, bundle);
 
   workspace.Mode = "";
   workspace.Savings = 0.0;
-
-  workspace.BundleDescription = bundle.Description;
 
   // The number of hours in this month that could have been billed
   var now = moment.utc();
@@ -422,14 +300,14 @@ function analyseResults(config, workspace, bundles)
     workspace.Utilisation = +(workspace.ConnectedHours / workspace.BillableHours).toFixed(2);
   }
 
-  workspace.HourlyBasePrice = bundle.hourlyBasePrice;
-  workspace.HourlyPrice = bundle.hourlyPrice;
-  workspace.MonthlyPrice = bundle.monthlyPrice;
-  workspace.OptimalMonthlyHours = bundle.optimalMonthlyHours;
+  workspace.HourlyBasePrice = pricing.hourlyBasePrice;
+  workspace.HourlyPrice = pricing.hourlyPrice;
+  workspace.MonthlyPrice = pricing.monthlyPrice;
+  workspace.OptimalMonthlyHours = pricing.optimalMonthlyHours;
   workspace.StartOfMonth = getStartDate().format();
   workspace.EndOfMonth = getEndDate().format();
 
-  var hourlyCost = bundle.hourlyBasePrice + workspace.ConnectedHours * bundle.hourlyPrice;
+  var hourlyCost = pricing.hourlyBasePrice + workspace.ConnectedHours * pricing.hourlyPrice;
 
   if (runningMode === "AUTO_STOP")
   {
@@ -438,7 +316,7 @@ function analyseResults(config, workspace, bundles)
   }
   else if (runningMode === "ALWAYS_ON")
   {
-    workspace.UsageCost = bundle.monthlyPrice;
+    workspace.UsageCost = pricing.monthlyPrice;
     workspace.Mode = "MONTHLY";
   }
 
@@ -599,7 +477,7 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
   var lastError = null;
 
   var startDate = getStartDate();
-  var endDate = moment.utc()
+  var endDate = moment.utc();
 
   var params = {
     Dimensions: [],
@@ -622,7 +500,6 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
     try
     {
       var metrics = await awscloudwatch.getMetricStatistics(params).promise();
-      var billableTime = 0;
 
       workspace.DailyUsage = [];
       workspace.DailyUsage.length = getDaysInMonth();
@@ -681,7 +558,7 @@ exports.sleepExport = function sleepExport(millis)
   return new Promise(resolve => {
       setTimeout(resolve, millis);
   });
-}
+};
 
 /**
  * Compute the line of best fit and recommended actions
@@ -754,9 +631,6 @@ function computeBestFitAndAction(workspace)
     }
 
     var leastSquaresCoeff = leastSquares(xSeriesClamped, ySeriesClamped);
-
-    var x1 = 1;
-    var y1 = leastSquaresCoeff[0] + leastSquaresCoeff[1];
 
     if (leastSquaresCoeff[0] != 0)
     {

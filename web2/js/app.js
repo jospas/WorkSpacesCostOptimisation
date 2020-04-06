@@ -686,6 +686,7 @@ function getSingleUsage(workspace)
   console.log('Connected hours: ' + workspace.ConnectedHours);
   console.log('Utilisation: ' + workspace.Utilisation);
   console.log('Usage: ' + JSON.stringify(workspace.DailyUsage));
+  console.log('ComputeType: ' + JSON.stringify(getComputeType(workspace)));
   console.log('-----------------------------');
 
   return dataSets;
