@@ -193,8 +193,7 @@
 
     workspaces.forEach(workspace => 
     {
-      var key = workspace.WorkspaceProperties.ComputeTypeName ? 
-        workspace.WorkspaceProperties.ComputeTypeName : "UNKNOWN";
+      var key = getComputeType(workspace);
 
       if (key == 'PERFORMANCE')
       {
@@ -237,8 +236,7 @@
 
     workspaces.forEach(workspace => 
     {
-      var key = workspace.WorkspaceProperties.ComputeTypeName ? 
-        workspace.WorkspaceProperties.ComputeTypeName : "UNKNOWN";
+      var key = getComputeType(workspace);
 
       if (key == 'PERFORMANCE')
       {

@@ -372,6 +372,25 @@ function createConversionScript()
   $("#conversionScriptDialog").modal();
 }
 
+function getComputeType(workspace)
+{
+  var computeType = workspace.WorkspaceProperties.ComputeTypeName;
+
+  if (!computeType)
+  {
+    if (workspace.State === 'PENDING')
+    {
+      computeType = "PENDING"; 
+    }
+    else
+    {
+      computeType = "UNKNOWN";
+    }
+  }
+
+  return computeType
+}
+
 function computeCost(workspace)
 {
   if (workspace.Mode == "HOURLY")
@@ -406,7 +425,7 @@ function createGraphTableDataset(workspaces)
       '',
       workspace.WorkspaceId,
       workspace.UserName,
-      workspace.WorkspaceProperties.ComputeTypeName ? workspace.WorkspaceProperties.ComputeTypeName : "UNKNOWN",
+      getComputeType(workspace),
       workspace.Mode,
       computeCost(workspace),
       workspace.ConnectedHours,
