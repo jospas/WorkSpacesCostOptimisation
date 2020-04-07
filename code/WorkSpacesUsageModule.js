@@ -228,13 +228,41 @@ function getRootStorage(workspace)
   return size;
 }
 
-function getUserStorage(workspace)
+function computeUserStorage(workspace)
 {
   var size = workspace.WorkspaceProperties.UserVolumeSizeGib;
 
   if (!size)
   {
     return 0;
+  }
+
+  workspace.WorkspaceProperties.ExtraUserVolumeSizeGib = 0;
+
+  if (size == 10 || size == 50 || size == 100)
+  {
+    return size;
+  }
+
+  if (size > 100)
+  {
+    workspace.WorkspaceProperties.UserVolumeSizeGib = 100;
+    workspace.WorkspaceProperties.ExtraUserVolumeSizeGib = size - 100;
+    return workspace.WorkspaceProperties.UserVolumeSizeGib;
+  }
+
+  if (size > 50)
+  {
+    workspace.WorkspaceProperties.UserVolumeSizeGib = 50;
+    workspace.WorkspaceProperties.ExtraUserVolumeSizeGib = size - 50;
+    return workspace.WorkspaceProperties.UserVolumeSizeGib;
+  }
+
+  if (size > 10)
+  {
+    workspace.WorkspaceProperties.UserVolumeSizeGib = 10;
+    workspace.WorkspaceProperties.ExtraUserVolumeSizeGib = size - 10;
+    return workspace.WorkspaceProperties.UserVolumeSizeGib;
   }
 
   return size;   
@@ -252,7 +280,7 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
   }
 
   var computeType = getComputeType(workspace);
-  var storage = "storage_" + getRootStorage(workspace) + "_" + getUserStorage(workspace);
+  var storage = "storage_" + getRootStorage(workspace) + "_" + computeUserStorage(workspace);
   var pricing = {};
 
   var storageNode = regionPricing.os[os].licence[licence].computeType[computeType].monthly[storage];
