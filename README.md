@@ -64,15 +64,15 @@ Edit the environment properties and set the WorkSpaces directory id and update t
 
 Prior to deploying your dashboard to S3, you need to edit the web/site_config.json file to point to your deployed API Gateway endpoint:
 
-	{
-		"availableDataUrl": "https://<api>.execute-api.ap-southeast-2.amazonaws.com/<stage>/workspaces/data",
-	  "region": "ap-southeast-2"
+    {
+      "availableDataUrl": "https://<api>.execute-api.ap-southeast-2.amazonaws.com/<stage>/workspaces/data",
+      "region": "ap-southeast-2"
 	}
 	  
 Edit the availableDataUrl field and enter the URL output from the Serverless deployment script for example:
 
-	endpoints:
-		GET - https://<api>.execute-api.ap-southeast-2.amazonaws.com/dev/workspaces/data
+    endpoints:
+	  GET - https://<api>.execute-api.ap-southeast-2.amazonaws.com/dev/workspaces/data
 
 Also update the AWS region code (for example: ap-southeast-2).
 
