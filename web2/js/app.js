@@ -227,6 +227,14 @@ function renderDataPacksSelect()
 
 	$('#dataPacksSelect').prop('disabled', window.localStorage.selectLatest == 'true');
 	$('#useLatest').prop('checked', window.localStorage.selectLatest == 'true');
+
+	var lastRefresh = getLastRefresh();
+
+	if (lastRefresh)
+	{
+		$('#lastRefeshed').text("Data refreshed: " + new Date(lastRefresh).toString());
+	}
+
 }
 
 /**
@@ -370,6 +378,16 @@ function createConversionScript()
 {
   computeConversionScript();
   $("#conversionScriptDialog").modal();
+}
+
+function getLastRefresh()
+{
+	if (workspaces && workspaces[0] && workspaces[0].DataRefreshed)
+	{
+		return workspaces[0].DataRefreshed;
+	}
+
+	return null;
 }
 
 function getComputeType(workspace)

@@ -242,8 +242,6 @@ function getUserStorage(workspace)
 
 function getWorkspacePrice(config, workspace, regionPricing, bundle)
 {
-  console.log('[INFO] Bundle: ' + JSON.stringify(bundle, null, "  "));
-  console.log('[INFO] Workspace: ' + JSON.stringify(workspace, null, "  "));
   var os = bundle.Windows ? "windows": "linux";
 
   var licence = "included";
@@ -253,7 +251,6 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
     licence = "byol";
   }
 
-  console.log('[INFO] OS: ' + os + " licence: " + licence);
   var computeType = getComputeType(workspace);
   var storage = "storage_" + getRootStorage(workspace) + "_" + getUserStorage(workspace);
   var pricing = {};
@@ -270,7 +267,11 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
   pricing.monthlyPrice = storageNode.monthly;
   pricing.optimalMonthlyHours = Math.floor((pricing.monthlyPrice - pricing.hourlyBasePrice) / pricing.hourlyPrice);
 
-  console.log("[INFO] Loaded workspace pricing: " + JSON.stringify(pricing, null, "  "));
+  console.log(sprintf("[INFO] Loaded workspace pricing for workspace: %s operating system: %s license: %s pricing: %s",
+    workspace.WorkspaceId,
+    os,
+    licence,
+    JSON.stringify(pricing, null, "  ")));
 
   return pricing;
 }
@@ -307,6 +308,7 @@ function analyseResults(config, workspace, bundles, regionPricing)
   workspace.OptimalMonthlyHours = pricing.optimalMonthlyHours;
   workspace.StartOfMonth = getStartDate().format();
   workspace.EndOfMonth = getEndDate().format();
+  workspace.DataRefreshed = moment().format();
 
   var hourlyCost = pricing.hourlyBasePrice + workspace.ConnectedHours * pricing.hourlyPrice;
 
