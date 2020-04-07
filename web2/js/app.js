@@ -57,24 +57,6 @@ function formatDateTime(date)
 }
 
 /**
- * Get a signed put URL for this file
- */
-function getSignedUrl(file)
-{	
-	var api = siteConfig.api_base + siteConfig.api_upload + '/' + file.name;
-	console.log('[INFO] fetching signed url from: ' + api);
-
-	let axiosConfig = {
-		headers: {
-			'Content-Type': 'application/json;charset=UTF-8',
-			'X-Api-Key': localStorage.apiKey
-		}
-	};
-
-	return axios.get(api, axiosConfig);
-}
-
-/**
  * Logs the user out
  */
 function logout()
@@ -188,6 +170,12 @@ function getSelectedDataPack()
 	}
 
 	return filtered[0];
+}
+
+function renderError(cause)
+{
+	$("#errorMessage").text(cause);
+	$("#errorMessage").removeClass("d-none");
 }
 
 function useLatestChanged()

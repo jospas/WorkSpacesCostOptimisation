@@ -29,8 +29,9 @@
 </div>
 
 <div class="text-center" id="loading"><img src="img/loading.gif" class="img-fluid"/></div>
+<div class="alert alert-danger d-none m-4" role="alert" id="errorMessage"></div>
 
-<div class="col-md-12">
+<div class="col-md-12" id="dashboard">
   <div class="row">
     <div class="col-md-4 p-1 border-bottom">
       <h5 class="text-center">Spend</h5>
@@ -533,8 +534,17 @@
       createCharts(workspaces);
       renderDataPacksSelect();
       $('#loading').hide();
+    }).catch(error =>
+    {
+      $('#loading').hide();
+      $('#dashboard').hide();
+      renderError("Failed to load workspaces data, check console logs: " + error);
     });
-  }); 
-
+  }).catch(error =>
+  {
+    $('#loading').hide();
+    $('#dashboard').hide();
+    renderError("Failed to load usage data, check console logs: " + error);
+  });
 
 </script>
