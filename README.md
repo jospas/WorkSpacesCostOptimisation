@@ -1,18 +1,20 @@
 # Amazon WorkSpaces Cost Optimisation
 
-Provides a dashboard 
+This solution provides a dashboard that analyses Amazon WorkSpace usage within an account.
 
 This is a Node.js conversion of the existing project that provides a full deployable solution to AWS but for one off usage by customers:
 
 - [WorkSpaces Cost Optimizer](https://docs.aws.amazon.com/solutions/latest/workspaces-cost-optimizer/welcome.html)
 
-It adds the enhancement of reduced configuration (automated download of public pricing) and reduces the deployable footprint (can be run as a script and soon as a Lambda function).
+It adds the enhancement a simpler deployed footprint (Lambda function based) and a detailed analytics dashboard.
+
+This project does not aim to auto-remediate customer's accounts but does provide the ability to generate scripts that customers can use to adjust billing modes in their account via the AWS CLI.
 
 ## TODO
 
-1. Finish Lambda function deployment and scheduling
-2. Track the cost of extra allocated user storage
-3. Track WorkSpaces usage over multiple months in S3 or DynamoDB and suggest terminations of under-utilised instances 
+1. Track the cost of extra allocated user storage
+2. Compute a days since use field
+3. Suggest idle instances based on days since use
 
 ## Important Notes
 
@@ -26,53 +28,96 @@ You can switch from monthly to hourly billing by setting the running mode to Aut
 
 WorkSpaces users can also switch between monthly and hourly billing directly from the WorkSpaces client if this self-service management capability is enabled by their WorkSpaces administrator.
 
-## Environment setup
+## Credentials
 
-This is a Node.js script so you will need Node.js (and NPM installed):
+You will need an IAM admin user locally to deploy the solution (or sufficient privelidges to deploy AWS Lambda Functions, create Amazon API Gateway End Points, IAM roles and S3 buckets.
+
+## Server deployment
+
+This is Serverless.com application and you will need Node.js installed to deploy it:
 
 - [Install Node for your Platform](https://nodejs.org/en/download/)
+
+Install serverless:
+
+	npm install -g serverless
 
 Run the command to fetch the dependencies locally:
 
 	npm install
 
-## Credentials
+Deploy using:
 
-You will either need to run the script on an EC2 instance or install the Lambda function using the provided CloudFormation template using an appropriate role or locally with a named profile.
+	serverless deploy --profile <AWS profile name> --stage <stage>
+	
+Make a note of the S3 bucket, API Gateway url and generated API key that are written to the console.
 
-You will require the following minimum IAM policy:
+## Post deployment configuration
 
-	  {
-	    "Version": "2012-10-17",
-	    "Statement":[
-	      {
-	        "Effect":"Allow",
-	        "Action":["workspaces:DescribeWorkspaces",
-	          "workspaces:DescribeWorkspaceBundles"],
-	        "Resource":"*"
-	      },
-	      {
-	        "Effect":"Allow",
-	        "Action":["cloudwatch:GetMetricStatistics"],
-	        "Resource":"*"
-	      }
-	    ]
-	  }
+Log into the AWS console and locate the Lambda function: 
+	
+	<stage>-aws-workspaces-optimisation-function
+	
+Edit the environment properties and set the WorkSpaces directory id and update the BYOL flag to true or false.
  
-## Configuration
+## Dashboard configuration
 
-Clone the config/example.json configuration file locally and open in an editor.
+Prior to deploying your dashboard to S3, you need to edit the web/site_config.json file to point to your deployed API Gateway endpoint:
 
-	  {
-	    "directoryId": "XXXXXXXX",
-	    "region": "XXXXXXXX",
-	    "profile": "workspaces",
-	    "windowsBYOL": false
-	  }
-  
-Edit the AWS region code (for example: ap-southeast-2), Amazon WorkSpaces directory id and remove or edit the profile name as required.
+	{
+		"availableDataUrl": "https://<api>.execute-api.ap-southeast-2.amazonaws.com/<stage>/workspaces/data",
+	  "region": "ap-southeast-2"
+	}
+	  
+Edit the availableDataUrl field and enter the URL output from the Serverless deployment script for example:
 
-If using dedicated hosts and BYOL licensing for Windows, enable the 'windowsBYOL' flag to use BYOL pricing.
+	endpoints:
+		GET - https://<api>.execute-api.ap-southeast-2.amazonaws.com/dev/workspaces/data
+
+Also update the AWS region code (for example: ap-southeast-2).
+
+## Dashboard deployment
+
+Deploy your dashboard into S3:
+	
+	cd web/
+	aws s3 cp . s3://<stage>-aws-workspaces-optimisation-<region>-<account number>/apps/workspaces/web/ --recursive --acl public-read
+	
+## Access your dashboard
+
+Edit this URL to replace the stage, region and account number and open in your browser:
+
+	https://<stage>-aws-workspaces-optimisation-<region>-<account number>.s3-<region>.amazonaws.com/apps/workspaces/web/index.html
+
+Click on the **Log in** link:
+	
+![](docs/login.png)
+
+This shows the login dialog and you can paste in your API key:
+
+![](docs/api-key.png)
+
+Once you have entered a valid API key you should be able to access your dashboard and recommendation tabs:
+
+![](docs/dashboard.png)
+
+The charts are clickable and will link to filtered pages showing the list of instances that make up each category.
+
+![](docs/recommendations.png)
+
+The recommendations tab shows recommended changes to billing modes.
+
+Select the instances you wish to convert and press the **Generate script** button to make an AWS CLI script for switching billing modes:
+
+![](docs/script.png)
+
+You may also enter an optional AWS profile name and use the **Copy** button to copy the script to the clipboard. 
+
+A graph showing cumulative usage are also provided for each instance:
+
+![](docs/graph.png)
+
+The graph plots the current cumulative usage, the predicted usage, the optimal monthly and daily usage. The graph is useful to investigate individual user activity and predict early in the month if a user will consume enough hours to warrant switching to monthly (always on) billing.
 
 ## Cost implications
 
@@ -84,39 +129,3 @@ For more information see:
 
 - [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing)
 
-## Running the script
-
-Run the script using this command, passing your config file of choice:
-
-	node code/WorkSpacesUsageScript.js config/yourconfig.json
-
-The script will produce the following data files in *./output/*
-
-1. usage.csv - a CSV file containing the raw usage data
-2. workspaces.json - a JSON file containing data about current WorkSpaces instances and their daily usage
-3. updateBilling.sh - a command line script for making the suggested changes
-4. customer_bundes.json - a data file containing the current customer bundles and pricing
-5. amazon_bundles.json - a data file containing the current Amazon bundles and pricing
-6. public_pricing.json - a simplified pricing file for the current region
-
-It also produces some summary estimates of potential savings for example:
-
-	[INFO] Total potential monthly savings: $4557.69
-	[INFO] Total potential yearly savings: $54692.28
-
-## Dashboard
-
-The system bundles a simple dashboard for viewing usage statistics. To run the dashboard locally simply copy the output data file to the web folder:
-
-	cp output/workspaces.json web/
-	
-Start a local webserver from the web/ folder:
-
-	cd web/
-	python -m SimpleHTTPServer 8001
-	
-Open your browser to http://localhost:8001
-
-The dashboard shows various usage statistics and allows prediction of monthly usage:
-
-![Dashboard](documentation/dashboard.png)
