@@ -150,17 +150,18 @@ function isLastDayOfMonth()
 }
 
 /**
- * Loads region pricing
+ * Loads region pricing from file
  */
 exports.getRegionPricing = async function(config)
 {
-  console.log("[INFO] Loading region pricing for: " + config.region);
-  var pricingUrl = "https://aws-workspaces-pricing.s3.amazonaws.com/regions/" + config.region + ".json";
+  console.log("[INFO] Loading region pricing from file for: " + config.region);
+  var pricingFile = "./pricing/" + config.region + ".json";
 
   try
   {
-    var response = await axios.get(pricingUrl);
-    return response.data;
+    var content = fs.readFileSync(pricingFile);
+    console.log("[INFO] Successfully loaded pricing from file for region: " + config.region);
+    return JSON.parse(content);
   }
   catch (error)
   {

@@ -30,6 +30,7 @@ functions:
         - '!node_modules/**'
         - '!code/WorkSpacesUsageLambda.js'
         - '!code/WorkSpacesUsageModule.js'
+        - '!pricing/**'
       excludeDevDependencies: true
     memorySize: 2048
     timeout: 900
