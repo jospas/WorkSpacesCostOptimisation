@@ -129,3 +129,8 @@ For more information see:
 
 - [Amazon WorkSpaces FAQ - Billing and Pricing](https://aws.amazon.com/workspaces/faqs/#Billing_and_Pricing)
 
+## Acknowledgements
+
+Special thanks goes to Robbie Cooray for his amazing efforts in testing and verification!
+
+
