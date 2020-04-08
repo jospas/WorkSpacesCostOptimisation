@@ -15,6 +15,8 @@ This project does not aim to auto-remediate customer's accounts but does provide
 1. Compute a days since use field
 2. Suggest idle instances based on days since use
 3. User interface control that shows root, user and extra user storage
+4. Consider automated conversions based on recommendations
+5. Display cost savings for recommendations
 
 ## Important Notes
 
