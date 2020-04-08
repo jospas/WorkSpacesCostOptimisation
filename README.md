@@ -17,6 +17,7 @@ This project does not aim to auto-remediate customer's accounts but does provide
 3. User interface control that shows root, user and extra user storage
 4. Consider automated conversions based on recommendations
 5. Display cost savings for recommendations
+6. Support tag based filtering
 
 ## Important Notes
 
