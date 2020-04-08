@@ -114,7 +114,7 @@ function updateAWSConfig(config)
     {
         AWS.config.update({accessKeyId: process.env.TEMP_ACCESS_KEY, 
             secretAccessKey: process.env.TEMP_SECRET_KEY});
-        console.log("[INFO] injected temporary AWS credentials");
+        console.log("[INFO] Injected temporary AWS credentials");
     }
 }
 

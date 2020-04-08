@@ -12,9 +12,8 @@ This project does not aim to auto-remediate customer's accounts but does provide
 
 ## TODO
 
-1. Track the cost of extra allocated user storage
-2. Compute a days since use field
-3. Suggest idle instances based on days since use
+1. Compute a days since use field
+2. Suggest idle instances based on days since use
 
 ## Important Notes
 

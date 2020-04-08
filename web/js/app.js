@@ -688,10 +688,7 @@ function getSingleUsage(workspace)
     dataSets.push(bestFit);
   }
 	console.log('-----------------------------');
-  console.log('Billable hours: ' + workspace.BillableHours);
-  console.log('Connected hours: ' + workspace.ConnectedHours);
-  console.log('Utilisation: ' + workspace.Utilisation);
-  console.log('Usage: ' + JSON.stringify(workspace.DailyUsage));
+	console.log('Selected workspace: ' + JSON.stringify(workspace, null, "  "));
   console.log('ComputeType: ' + JSON.stringify(getComputeType(workspace)));
   console.log('-----------------------------');
 

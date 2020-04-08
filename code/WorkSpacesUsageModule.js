@@ -228,6 +228,10 @@ function getRootStorage(workspace)
   return size;
 }
 
+/**
+ * Computes user storage and stores the extra storage in
+ * WorkspaceProperties.ExtraUserVolumeSizeGib
+ */
 function computeUserStorage(workspace)
 {
   var size = workspace.WorkspaceProperties.UserVolumeSizeGib;
@@ -290,6 +294,8 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
     throw new Error("Failed to locate pricing for workspace: " + JSON.stringify(workspace, null, "  "));
   }
 
+  pricing.extraUserVolumePrice = +(workspace.WorkspaceProperties.ExtraUserVolumeSizeGib * 
+    regionPricing.additionalStoragePrice).toFixed(2)
   pricing.hourlyPrice = regionPricing.os[os].licence[licence].computeType[computeType].hourly;
   pricing.hourlyBasePrice = storageNode.hourly;
   pricing.monthlyPrice = storageNode.monthly;
@@ -304,7 +310,6 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
   return pricing;
 }
 
-
 /**
  * Analyses the results for a workspace for this year
  */
@@ -316,6 +321,9 @@ function analyseResults(config, workspace, bundles, regionPricing)
 
   workspace.Mode = "";
   workspace.Savings = 0.0;
+
+  // Save aside the pricing for this workspace
+  workspace.CalculatedPricing = pricing;
 
   // The number of hours in this month that could have been billed
   var now = moment.utc();
@@ -330,9 +338,9 @@ function analyseResults(config, workspace, bundles, regionPricing)
     workspace.Utilisation = +(workspace.ConnectedHours / workspace.BillableHours).toFixed(2);
   }
 
-  workspace.HourlyBasePrice = pricing.hourlyBasePrice;
+  workspace.HourlyBasePrice = pricing.hourlyBasePrice + pricing.extraUserVolumePrice;
   workspace.HourlyPrice = pricing.hourlyPrice;
-  workspace.MonthlyPrice = pricing.monthlyPrice;
+  workspace.MonthlyPrice = pricing.monthlyPrice + pricing.extraUserVolumePrice;
   workspace.OptimalMonthlyHours = pricing.optimalMonthlyHours;
   workspace.StartOfMonth = getStartDate().format();
   workspace.EndOfMonth = getEndDate().format();

@@ -9,7 +9,7 @@ provider:
   profile: ${opt:profile, 'aws-josh'}
   apiKeys:
     - name: ${self:provider.stage}-${self:service}
-      description: 'API Key for Workpsaces cost optimisation'
+      description: 'API Key for WorkSpaces cost optimisation'
 
 package:
   individually: true 
