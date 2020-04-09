@@ -12,12 +12,10 @@ This project does not aim to auto-remediate customer's accounts but does provide
 
 ## TODO
 
-1. Compute a days since use field
-2. Suggest idle instances based on days since use
-3. User interface control that shows root, user and extra user storage
-4. Consider automated conversions based on recommendations
-5. Display cost savings for recommendations
-6. Support tag based filtering
+1. User interface control that shows root, user and extra user storage
+2. Consider automated conversions based on recommendations
+3. Display cost savings for recommendations
+4. Support tag based filtering
 
 ## Important Notes
 

@@ -222,7 +222,6 @@ function renderDataPacksSelect()
 	{
 		$('#lastRefeshed').text("Data refreshed: " + new Date(lastRefresh).toString());
 	}
-
 }
 
 /**
@@ -296,6 +295,119 @@ async function loadWorkspaces(url)
 		console.log('Failed to load workspaces: ' + error);
 		throw error;
 	}
+}
+
+function indexOfLastNonZero(usageArray)
+{
+	if (usageArray && usageArray.length > 0)
+	{
+		for (var i = usageArray.length - 1; i >= 0; i--)
+		{
+			if (usageArray[i] > 0)
+			{
+				return i;
+			}
+		}
+	}
+
+	return -1;
+}
+
+async function computeDaysOfIdle(selectedDataPack, workspaces)
+{
+	var loadingHistorical = false;
+
+	var loadedHistory = [];
+
+	for (var i = 0; i < availableData.length; i++)
+	{
+		if (!loadingHistorical && availableData[i].yearMonth == window.localStorage.dataPack)
+		{
+			loadingHistorical = true;
+		}
+		else if (loadingHistorical)
+		{
+			var history = await loadWorkspaces(availableData[i].url);
+			loadedHistory.push(history);
+		}
+
+		if (loadedHistory.length >= 5)
+		{
+			break;
+		}
+	}
+
+	// First look at each workpsace in the selected month and see if they have use
+	for (var i = 0; i < workspaces.length; i++)
+	{
+		var daysBack = 0;
+		var workspace = workspaces[i];
+		var now = moment();
+		var startOfMonth = moment(workspace.StartOfMonth);
+		var daysSinceStartOfMonth = now.diff(startOfMonth, 'day');
+
+		if (daysSinceStartOfMonth > workspace.DailyUsage.length)
+		{
+			daysSinceStartOfMonth = workspace.DailyUsage.length;
+		}
+
+		var lastNonZeroIndex = indexOfLastNonZero(workspace.DailyUsage);
+
+		if (lastNonZeroIndex >= 0)
+		{
+			workspace.DaysSinceLastUse = daysSinceStartOfMonth - lastNonZeroIndex;
+			continue;
+		}
+
+		if (!workspace.DaysSinceLastUse)
+		{
+			daysBack += daysSinceStartOfMonth;
+
+			for (var j = 0; j < loadedHistory.length; j++)
+			{
+				// Look for this workspace in the previous month
+				var matchedWorkspaces = loadedHistory[j].filter(old => (old.WorkspaceId == workspace.WorkspaceId));
+
+				// We found this workspace in the previous month
+				if (matchedWorkspaces && matchedWorkspaces.length == 1)
+				{
+					//console.log('[INFO] Found an instance in a previous month: ' + workspace.WorkspaceId);
+					var matchedWorkspace = matchedWorkspaces[0];
+
+					var useInPreviousMonth = indexOfLastNonZero(matchedWorkspace.DailyUsage);
+
+					// We found usage in the previous month
+					if (useInPreviousMonth >= 0)
+					{
+						workspace.DaysSinceLastUse = daysBack + (matchedWorkspace.DailyUsage.length - useInPreviousMonth);
+						//console.log('[INFO] Found usage in previous month: ' + workspace.DaysSinceLastUse + ' days ago: ' + workspace.WorkspaceId);
+						break;
+					}
+
+					// We didn't find any usage in this month so go back another month
+					daysBack += matchedWorkspace.DailyUsage.length;
+					//console.log('[INFO] Found instance but no usage, looking back another month');
+				}
+				else
+				{
+					// This workspace didn't exist in the previous month so 
+					// the maximum we can track is this mongth
+					workspace.DaysSinceLastUse = daysBack;
+					//console.log('[INFO] did not find instance in historical month assuming: ' + workspace.DaysSinceLastUse + ' days ago');
+					break;
+				}
+			}
+
+			// Since we didn't see previous use at all we must assume the worst case
+			if (!workspace.DaysSinceLastUse)
+			{
+				workspace.DaysSinceLastUse = daysBack;
+				//console.log('[INFO] did not find any usage in any previous month assuming: ' + workspace.DaysSinceLastUse + ' days ago');
+			}
+		}
+	}
+	
+	//console.log('[INFO] Processed idle counts for workspaces: ' + JSON.stringify(workspaces, null, "  "));
 }
 
 function copyScript()
@@ -435,6 +547,7 @@ function createGraphTableDataset(workspaces)
       workspace.Mode,
       computeCost(workspace),
       workspace.ConnectedHours,
+      workspace.DaysSinceLastUse,
       workspace.Action,
       workspace.ActionReason
     ];
@@ -444,9 +557,11 @@ function createGraphTableDataset(workspaces)
   return dataSet;
 }
 
-function createGraphTable(workspaces, filter)
+async function createGraphTable(workspaces, filter)
 {
 	destroyTable();
+
+	await computeDaysOfIdle(selectedDataPack, workspaces);
 
   $('#workspacesTable').DataTable( 
   {
@@ -462,6 +577,7 @@ function createGraphTable(workspaces, filter)
         { title: "Mode" },
         { title: "Cost" },
         { title: "Hours" },
+        { title: "Idle" },
         { title: "Action" },
         { title: "Reason" }
     ],
@@ -499,11 +615,27 @@ function createGraphTable(workspaces, filter)
         }
       }
     },
-    {
-      targets: 9,
+		{
+      targets: 8,
       render: function (data, type, full, meta) 
       {
-        var fullValue = full[9];
+        var value = full[8];
+
+        if (type === 'export')
+        {
+          return value;
+        }
+        else
+        {
+          return '<span data-toggle="tooltip" data-placement="left" title="Days idle: ' + value + '">' + value + '</span>';
+        } 
+      }
+    },
+    {
+      targets: 10,
+      render: function (data, type, full, meta) 
+      {
+        var fullValue = full[10];
         var value = fullValue;
 
         if (value.length > 35)

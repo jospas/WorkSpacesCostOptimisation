@@ -18,3 +18,11 @@
   float:right;
   padding-left: 20px;
 }
+
+table.display thead th div.DataTables_sort_wrapper {
+  padding: 0;
+}
+
+table.display thead th {
+  padding: 3px;
+}
