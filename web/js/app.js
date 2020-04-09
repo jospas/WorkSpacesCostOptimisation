@@ -355,7 +355,7 @@ async function computeDaysOfIdle(selectedDataPack, workspaces)
 
 		if (lastNonZeroIndex >= 0)
 		{
-			workspace.DaysSinceLastUse = daysSinceStartOfMonth - lastNonZeroIndex;
+			workspace.DaysSinceLastUse = Math.max(0, daysSinceStartOfMonth - lastNonZeroIndex - 1);
 			continue;
 		}
 
