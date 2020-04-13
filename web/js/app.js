@@ -935,8 +935,30 @@ function showWorkspaceDialog(workspaceId)
     $("#workspaceAction").text(workspace.Action);
     $("#workspaceActionReason").text(workspace.ActionReason + ' - (confidence ' + 
     		(isNaN(workspace.ActionConfidence) ? 0.0 : workspace.ActionConfidence) + ')')
+
+    $('#costSummary').html('');
+
+    if ((workspace.Action == 'CONVERT' || workspace.Action == 'INSPECT') && (workspace.Mode == 'HOURLY') && workspace.PredictedHoursEndMonth)
+    {
+    	let costAtEndOfMonth = workspace.HourlyBasePrice + workspace.HourlyPrice * workspace.PredictedHoursEndMonth;
+    	let totalBillableHours = workspace.DailyUsage.length * 24;
+    	let remainingBillableHours = totalBillableHours - workspace.BillableHours;
+    	let monthlyHourlyRate = workspace.MonthlyPrice / totalBillableHours;
+
+    	let costToEndOfMonth_Monthly = +((totalBillableHours - remainingBillableHours) * monthlyHourlyRate).toFixed(2);
+    	let costToEndOfMonth_Hourly = +((workspace.PredictedHoursEndMonth - workspace.ConnectedHours) * workspace.HourlyPrice).toFixed(2);
+    	let potentialSavings = +(costToEndOfMonth_Hourly - costToEndOfMonth_Monthly).toFixed(2);
+
+    	console.log('[INFO] cost to end of month in hourly: $' + costToEndOfMonth_Hourly + 
+    		' cost to end of month in monthly: $' + costToEndOfMonth_Monthly + 
+    		' potential savings: $' + potentialSavings);
+
+    	$('#costSummary').html('<div class="row"><div class="col-md-2"><b>Savings:</b></div>' +
+          '<div class="col-md-10">Potential savings by converting: $' + Math.floor(potentialSavings) +
+    		'</div></div>');
+    }
+
     $("#workspaceDetailsDialog").modal();
-    //console.log('Least squares: ' + JSON.stringify(workspace.LeastSquaresData, null, "  "));
   }
 }
 

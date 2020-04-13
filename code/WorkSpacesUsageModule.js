@@ -675,16 +675,19 @@ function computeBestFitAndAction(workspace)
     {
         var intersectionPoint = (workspace.OptimalMonthlyHours - leastSquaresCoeff[1]) / 
         leastSquaresCoeff[0];
+        var hoursAtEndOfMonth = leastSquaresCoeff[0] * (workspace.DailyUsage.length + 1) + leastSquaresCoeff[1];
         workspace.HasPrediction = true;
         workspace.LeastSquaresData = leastSquaresCoeff;
         workspace.PredictedCrossOver = +intersectionPoint.toFixed(1);
-        workspace.PredictionConfidence = leastSquaresCoeff[2].toFixed(2);
+        workspace.PredictedHoursEndMonth = +hoursAtEndOfMonth.toFixed(1);
+        workspace.PredictionConfidence = +leastSquaresCoeff[2].toFixed(2);
     }
     else
     {
         workspace.HasPrediction = true;
         workspace.LeastSquaresData = leastSquaresCoeff;
         workspace.PredictedCrossOver = 10000;
+        workspace.PredictedHoursEndMonth = cumulativeUse;
         workspace.PredictionConfidence = 1.0;
     }
 
@@ -697,7 +700,7 @@ function computeBestFitAndAction(workspace)
       {
         workspace.Action = 'CONVERT';
         workspace.ActionReason = 'Hourly usage exceeds monthly billing threshold';
-        workspace.ActionConfidence = 1.0;
+        workspace.ActionConfidence = workspace.PredictionConfidence;
       }
       else if (workspace.ConnectedHours == 0)
       {
