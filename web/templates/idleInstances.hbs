@@ -18,7 +18,7 @@
   <p class="lead">
     The following instances have zero utilisation this month. 
     The Idle field shows the number of days that this instance has been known to be idle 
-    (accumulated since deploying the solution).
+    (accumulated since deploying the solution). Select rows and use the <em>Generate Script</em> button to build a script that can be used to terminate instances.
   </p>
 
   <p>
@@ -66,12 +66,12 @@
   </div>
 </div>
 
-<!-- Conversion script text box -->
-<div class="modal fade" id="conversionScriptDialog" tabindex="-1" role="dialog" aria-labelledby="conversionScriptTitle" aria-hidden="true">
+<!-- Termination script text box -->
+<div class="modal fade" id="scriptDialog" tabindex="-1" role="dialog" aria-labelledby="terminateScriptTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="conversionScriptTitle">Generate convert billing mode script</h5>
+        <h5 class="modal-title" id="terminateScriptTitle">Generate termination script</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -90,10 +90,10 @@
         </div>
       </div>
       <div class="modal-body">
-          <textarea rows="8" width="100%" class="form-control" style="min-width: 100%" id="scriptTextArea"></textarea>
+          <textarea rows="8" width="100%" class="form-control" style="min-width: 100%" id="terminateScriptTextArea"></textarea>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary" onclick="copyScript()">Copy</button>
+        <button type="button" class="btn btn-primary" onclick="copyTerminationScript()">Copy</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
       </div>      
     </div>

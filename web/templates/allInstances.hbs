@@ -62,11 +62,11 @@
 </div>
 
 <!-- Conversion script text box -->
-<div class="modal fade" id="conversionScriptDialog" tabindex="-1" role="dialog" aria-labelledby="conversionScriptTitle" aria-hidden="true">
+<div class="modal fade" id="scriptDialog" tabindex="-1" role="dialog" aria-labelledby="convertScriptTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="conversionScriptTitle">Generate convert billing mode script</h5>
+        <h5 class="modal-title" id="convertScriptTitle">Generate convert billing mode script</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -85,10 +85,10 @@
         </div>
       </div>
       <div class="modal-body">
-          <textarea rows="8" width="100%" class="form-control" style="min-width: 100%" id="scriptTextArea"></textarea>
+          <textarea rows="8" width="100%" class="form-control" style="min-width: 100%" id="convertScriptTextArea"></textarea>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary" onclick="copyScript()">Copy</button>
+        <button type="button" class="btn btn-primary" onclick="copyConversionScript()">Copy</button>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
       </div>      
     </div>

@@ -410,18 +410,75 @@ async function computeDaysOfIdle(selectedDataPack, workspaces)
 	//console.log('[INFO] Processed idle counts for workspaces: ' + JSON.stringify(workspaces, null, "  "));
 }
 
-function copyScript()
+function copyConversionScript()
 {
-  var scriptTextArea = document.getElementById("scriptTextArea");
+  var scriptTextArea = document.getElementById("convertScriptTextArea");
+
+  scriptTextArea.select();
+  document.execCommand('copy');
+  scriptTextArea.setSelectionRange(0, 0);
+  scriptTextArea.blur();
+}
+
+function copyTerminationScript()
+{
+  var scriptTextArea = document.getElementById("terminateScriptTextArea");
+
   scriptTextArea.select();
   document.execCommand('copy');
   scriptTextArea.setSelectionRange(0, 0);
   scriptTextArea.blur(); 
 }
 
+function createScript()
+{
+  computeConversionScript();
+  computeTerminationScript();
+  $("#scriptDialog").modal();
+}
+
+
+function computeTerminationScript()
+{
+  var script = "# WARNING running this script will terminate selected instances.\n" +
+  						 "# This action is permanent and cannot be undone.\n\n";
+
+  var profile = $("#awsProfileName").val();
+
+  var instanceCount = 0;
+
+  table.$('input[type="checkbox"]').each(function()
+  {
+    if (this.checked) 
+    {
+      var workspaceId = this.value;
+
+      var workspace = workspaces.find(ws => ws.WorkspaceId === workspaceId);
+
+      if (workspace)
+      {
+        script += 'aws workspaces terminate-workspaces --terminate-workspace-requests ' + workspace.WorkspaceId;
+
+        if (profile != '')
+        {
+          script += ' --profile ' + profile;            
+        }
+
+        script += '\n';
+
+        instanceCount++;
+      }
+    }
+  });
+
+  $('#terminateScriptTitle').text("Terminate instances script - " + instanceCount + " instance(s)");
+  $('#terminateScriptTextArea').val(script);
+}
+
 function computeConversionScript()
 {
-  var script = "";
+  var script = "# WARNING running this script will convert billing mode for the selected instances.\n" +
+  						 "# This will affect how instances are billed.\n\n";
 
   var profile = $("#awsProfileName").val();
 
@@ -470,14 +527,8 @@ function computeConversionScript()
     script = 'echo "No instances selected"';
   }
 
-  $('#conversionScriptTitle').text("Convert billing mode script - " + instanceCount + " instance(s)");
-  $('#scriptTextArea').val(script);
-}
-
-function createConversionScript()
-{
-  computeConversionScript();
-  $("#conversionScriptDialog").modal();
+  $('#convertScriptTitle').text("Convert billing mode script - " + instanceCount + " instance(s)");
+  $('#convertScriptTextArea').val(script);
 }
 
 function getLastRefresh()
@@ -660,7 +711,7 @@ async function createGraphTable(workspaces, filter)
         text: '<b>Generate Script</b>',
         action: function (e, dt, node, config) 
         {
-          createConversionScript();
+          createScript();
         },
         exportOptions: { orthogonal: 'export' }
       },      
@@ -727,6 +778,7 @@ async function createGraphTable(workspaces, filter)
   // Listen AWS profile name changes
   $('#awsProfileName').on('input', function()
   {
+    computeTerminationScript();
     computeConversionScript();
   });
 }
