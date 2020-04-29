@@ -32,8 +32,8 @@ exports.handler = async (event, context, callback) => {
     try
     {
 
-      var nowPST = moment.utc().add(-7, 'hours');
-      console.log("[INFO] Starting loading workspaces at: " + nowPST.format() + " in PST");
+      var nowUTC = moment.utc();
+      console.log("[INFO] Starting loading workspaces at: " + nowUTC.format());
 
       var config = createConfig();
 
@@ -75,7 +75,7 @@ exports.handler = async (event, context, callback) => {
           data.monthIndex = match.groups.month;
           data.yearMonth = data.year + '' + data.monthIndex;
 
-          if (nowPST.format('YYYY') == data.year && nowPST.format('MM') == data.monthIndex)
+          if (nowUTC.format('YYYY') == data.year && nowUTC.format('MM') == data.monthIndex)
           {
             data.latest = true;
           }

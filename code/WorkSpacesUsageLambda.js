@@ -12,9 +12,9 @@ exports.handler = async (event, context, callback) =>
 
     try
     {
-        // When we started in PST (UTC - 7H)
-        var nowPST = moment.utc().add(-7, 'hours');
-        console.log("[INFO] Starting loading workspaces at: " + nowPST.format() + " in PST");
+        // When we started in UTC
+        var nowUTC = moment.utc();
+        console.log("[INFO] Starting loading workspaces at: " + nowUTC.format());
 
         // Creates config from environment
         var config = createConfig();
@@ -59,7 +59,7 @@ exports.handler = async (event, context, callback) =>
         // Save workpsaces data to S3
         await saveToS3(amazons3, 
             config.bucket, 
-            config.keyPrefix + "workspaces_" + nowPST.format("YYYY_MM") + ".json.gz", 
+            config.keyPrefix + "workspaces_" + nowUTC.format("YYYY_MM") + ".json.gz", 
             "application/x-gzip",
             compressedWorkspaces);
 

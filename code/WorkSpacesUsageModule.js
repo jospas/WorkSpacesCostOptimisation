@@ -1,7 +1,6 @@
 var fs = require("fs");
 var sprintf = require("sprintf-js").sprintf;
 var AWS = require("aws-sdk");
-var axios = require("axios");
 var moment = require("moment");
 
 /**
@@ -295,7 +294,7 @@ function getWorkspacePrice(config, workspace, regionPricing, bundle)
   }
 
   pricing.extraUserVolumePrice = +(workspace.WorkspaceProperties.ExtraUserVolumeSizeGib * 
-    regionPricing.additionalStoragePrice).toFixed(2)
+    regionPricing.additionalStoragePrice).toFixed(2);
   pricing.hourlyPrice = regionPricing.os[os].licence[licence].computeType[computeType].hourly;
   pricing.hourlyBasePrice = storageNode.hourly;
   pricing.monthlyPrice = storageNode.monthly;
@@ -396,7 +395,7 @@ async function describeWorkspaceBundlesPage(params, awsworkspaces)
 
 
 /**
- * Fetches a page of workpsaces sleeping and backing 
+ * Fetches a page of workspaces sleeping and backing 
  * off if we get throttled
  */
 async function getWorkspacesPage(params, awsworkspaces)
@@ -425,22 +424,21 @@ async function getWorkspacesPage(params, awsworkspaces)
 
 /**
  * Fetches the start of the workspaces billing month
- * which should be midnight on the 1st of the month in
- * Pacific Time (UTC -07:00)
+ * which should be midnight on the 1st of the month in UTC
  */
 function getStartDate()
 {
-  return moment.utc().startOf('month').add(-7, 'hours');
+  return moment.utc().startOf('month');
 }
 
 /**
  * Fetches the end of the workspaces billing month
- * which should be midnight on the lastday of the month in
- * Pacific Time (UTC -07:00)
+ * which should be midnight on the last day of the month
+ * in UTC
  */
 function getEndDate()
 {
-  return moment.utc().endOf('month').add(-7, 'hours');
+  return moment.utc().endOf('month');
 }
 
 /**
@@ -549,8 +547,7 @@ async function getWorkSpaceUsage(config, awscloudwatch, workspace)
       {
         if (metrics.Datapoints[m].Maximum > 0)
         {
-          // Track daily aggregate usage (in UTC) offset by -7 hours to make this align with
-          // the billing month -7 UTC
+          // Track daily aggregate usage (in UTC)
           var when = moment(metrics.Datapoints[m].Timestamp);
           var hoursSinceStart = Math.abs(when.diff(startDate, 'hours'));
           var daysSinceStart = Math.floor(hoursSinceStart / 24);
