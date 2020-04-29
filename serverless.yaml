@@ -106,7 +106,7 @@ resources:
             - Effect: Allow
               Action:
                 - workspaces:DescribeWorkspaces
-                - workspaces:ModifyWorkspaceProperties
+                - workspaces:DescribeWorkspaceBundles
                 - cloudwatch:GetMetricStatistics
               Resource: 
                 - '*'
