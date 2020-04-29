@@ -616,7 +616,7 @@ function computeBestFitAndAction(workspace)
      * Compute cumulative usage
      */
     workspace.DailyUsage.forEach(usage =>{
-      if (hours < (workspace.BillableHours + 12))
+      if (hours < (workspace.BillableHours - 24))
       {
         cumulativeUse += usage;
         ySeries.push(cumulativeUse);
@@ -636,8 +636,8 @@ function computeBestFitAndAction(workspace)
       }
     });
 
-    // Use at most the last 7 days of data
-    var startBillableHours = Math.max(0, workspace.BillableHours - 24 * 7);
+    // Use at most the last 7 days of data (but not current day)
+    var startBillableHours = Math.max(0, workspace.BillableHours - 24 * 8);
     var currentBillableHours = 0;
     var xSeriesClamped = [];
     var ySeriesClamped = [];
