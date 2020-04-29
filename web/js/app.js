@@ -997,9 +997,13 @@ function showWorkspaceDialog(workspaceId)
     	let remainingBillableHours = totalBillableHours - workspace.BillableHours;
     	let monthlyHourlyRate = workspace.MonthlyPrice / totalBillableHours;
 
-    	let costToEndOfMonth_Monthly = +((totalBillableHours - remainingBillableHours) * monthlyHourlyRate).toFixed(2);
+    	let costToEndOfMonth_Monthly = +(remainingBillableHours * monthlyHourlyRate).toFixed(2);
     	let costToEndOfMonth_Hourly = +((workspace.PredictedHoursEndMonth - workspace.ConnectedHours) * workspace.HourlyPrice).toFixed(2);
     	let potentialSavings = +(costToEndOfMonth_Hourly - costToEndOfMonth_Monthly).toFixed(2);
+
+      console.log('[INFO] total billable hours: ' + totalBillableHours + 
+        ' remainingBillableHours: ' + remainingBillableHours.toFixed(2) +
+        ' monthlyHourlyRate: $' + monthlyHourlyRate.toFixed(4));
 
     	console.log('[INFO] cost to end of month in hourly: $' + costToEndOfMonth_Hourly + 
     		' cost to end of month in monthly: $' + costToEndOfMonth_Monthly + 
