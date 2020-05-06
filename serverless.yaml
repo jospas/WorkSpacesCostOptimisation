@@ -6,7 +6,7 @@ provider:
   endpointType: REGIONAL
   runtime: nodejs12.x
   stage: ${opt:stage, 'dev'}
-  profile: ${opt:profile, 'aws-josh'}
+  #profile: ${opt:profile, 'aws-josh'}
   apiKeys:
     - name: ${self:provider.stage}-${self:service}
       description: 'API Key for WorkSpaces cost optimisation'
