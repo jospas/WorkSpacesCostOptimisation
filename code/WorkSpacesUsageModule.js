@@ -65,6 +65,8 @@ exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces)
       {
         bundle.Windows = false;
       }
+
+      console.log('[INFO] found bundle: ' + bundle.Name + ' is windows: ' + bundle.Windows);
     });
 
     return results;
