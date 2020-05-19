@@ -10,6 +10,10 @@ It adds the enhancement a simpler deployed footprint (Lambda function based) and
 
 This project does not aim to auto-remediate customer's accounts but does provide the ability to generate scripts that customers can use to adjust billing modes in their account via the AWS CLI.
 
+## Architected
+
+![](design.png)
+
 ## TODO
 
 1. User interface control that shows root, user and extra user storage
