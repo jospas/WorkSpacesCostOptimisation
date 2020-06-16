@@ -57,13 +57,13 @@ exports.describeWorkspaceBundles = async function(config, owner, awsworkspaces)
      */
     results.forEach(bundle =>
     {
-      if (bundle.Name.includes("Windows"))
+      if (bundle.Name.toLowerCase().includes("linux"))
       {
-        bundle.Windows = true;
+        bundle.Windows = false;
       }
       else
       {
-        bundle.Windows = false;
+        bundle.Windows = true;
       }
 
       console.log('[INFO] found bundle: ' + bundle.Name + ' is windows: ' + bundle.Windows);
