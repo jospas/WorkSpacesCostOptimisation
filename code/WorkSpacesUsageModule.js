@@ -226,6 +226,12 @@ function getRootStorage(workspace)
     return 0;
   }
 
+  if (size > 175)
+  {
+    console.log('[ERROR] invalid root sizing > 175 returning 175 for: ' + workspace.WorkspaceProperties.RootVolumeSizeGib);
+    return 175;
+  }
+
   return size;
 }
 
