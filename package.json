@@ -16,6 +16,6 @@
     "sprintf-js": "^1.1.2"
   },
   "devDependencies": {
-    "aws-sdk": "^2.596.0"
+    "aws-sdk": "^2.814.0"
   }
 }
